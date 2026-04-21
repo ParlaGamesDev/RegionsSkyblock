@@ -109,4 +109,8 @@ public class BlockBreak implements Listener {
             }
         }.runTaskLater(plugin, tree.getDelay());
     }
+
+    public RegionsHelper getHelper() {
+        return this.helper;
+    }
 }

@@ -7,6 +7,7 @@ import org.bukkit.World;
 import org.bukkit.block.Block;
 
 import java.util.ArrayList;
+import java.util.Random;
 
 public class RegionsHelper {
 
@@ -93,27 +94,27 @@ public class RegionsHelper {
         return farms;
     }
 
-    public Tree getTreeByKey(String key){
-        String world = plugin.getConfig().getString("trees."+key+".world");
+    public static Tree getTreeByKey(String key){
+        String world = RegionsSkyblock.instance.getConfig().getString("trees."+key+".world");
 
-        int x1 = plugin.getConfig().getInt("trees." + key + ".loc1.x");
-        int y1 = plugin.getConfig().getInt("trees." + key + ".loc1.y");
-        int z1 = plugin.getConfig().getInt("trees." + key + ".loc1.z");
+        int x1 = RegionsSkyblock.instance.getConfig().getInt("trees." + key + ".loc1.x");
+        int y1 = RegionsSkyblock.instance.getConfig().getInt("trees." + key + ".loc1.y");
+        int z1 = RegionsSkyblock.instance.getConfig().getInt("trees." + key + ".loc1.z");
         Loc loc1 = new Loc(x1, y1, z1, world);
 
-        int x2 = plugin.getConfig().getInt("trees." + key + ".loc2.x");
-        int y2 = plugin.getConfig().getInt("trees." + key + ".loc2.y");
-        int z2 = plugin.getConfig().getInt("trees." + key + ".loc2.z");
+        int x2 = RegionsSkyblock.instance.getConfig().getInt("trees." + key + ".loc2.x");
+        int y2 = RegionsSkyblock.instance.getConfig().getInt("trees." + key + ".loc2.y");
+        int z2 = RegionsSkyblock.instance.getConfig().getInt("trees." + key + ".loc2.z");
         Loc loc2 = new Loc(x2, y2, z2, world);
 
-        int minDelay = plugin.getConfig().getInt("trees."+key+".minDelay");
-        int maxDelay = plugin.getConfig().getInt("trees."+key+".maxDelay");
+        int minDelay = RegionsSkyblock.instance.getConfig().getInt("trees."+key+".minDelay");
+        int maxDelay = RegionsSkyblock.instance.getConfig().getInt("trees."+key+".maxDelay");
 
         return new Tree(loc1, loc2, minDelay, maxDelay, key);
     }
 
-    public Tree getTreeByLocation(Location location){
-        for(String key : plugin.getConfig().getConfigurationSection("trees").getKeys(false)){
+    public static Tree getTreeByLocation(Location location){
+        for(String key : RegionsSkyblock.instance.getConfig().getConfigurationSection("trees").getKeys(false)){
             Tree tree = getTreeByKey(key);
             if(tree.contains(location)){
                 return tree;

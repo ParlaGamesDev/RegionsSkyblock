@@ -3,6 +3,7 @@ package me.goomer.regionsSkyblock;
 import me.goomer.regionsSkyblock.commands.*;
 import me.goomer.regionsSkyblock.events.BlockBreak;
 import me.goomer.regionsSkyblock.events.NewBlockBreak;
+import me.goomer.regionsSkyblock.events.SkyblockItemsListener;
 import me.goomer.regionsSkyblock.regions.BlockLoc;
 import me.goomer.regionsSkyblock.regions.Farm;
 import me.goomer.regionsSkyblock.regions.RegionsHelper;
@@ -32,17 +33,21 @@ import java.util.UUID;
 
 public final class RegionsSkyblock extends JavaPlugin {
 
+    public static RegionsSkyblock instance;
+
     HashMap<String, ArrayList<BlockLoc>> blocks;
     HashMap<String, ItemDisplay> stars;
 
     @Override
     public void onEnable() {
+        instance = this;
         // Plugin startup logic
         saveDefaultConfig();
         blocks = new HashMap<>();
         stars = new HashMap<>();
 
         getServer().getPluginManager().registerEvents(new NewBlockBreak(this), this);
+        getServer().getPluginManager().registerEvents(new SkyblockItemsListener(), this);
         getCommand("regions").setExecutor(new MainCommand(this));
 
         regenerateStars();

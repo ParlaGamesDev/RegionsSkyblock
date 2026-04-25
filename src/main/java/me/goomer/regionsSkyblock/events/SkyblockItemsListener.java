@@ -1,8 +1,8 @@
 package me.goomer.regionsSkyblock.events;
 
 import dev.agam.skyblockitems.api.events.AbilityBlockBreakEvent;
-import dev.agam.skyblockitems.api.events.TreeCapitatorEvent;
 import me.goomer.regionsSkyblock.RegionsSkyblock;
+import me.goomer.regionsSkyblock.regions.BlockLoc;
 import me.goomer.regionsSkyblock.regions.RegionsHelper;
 import me.goomer.regionsSkyblock.regions.Tree;
 import org.bukkit.Location;
@@ -12,39 +12,51 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.scheduler.BukkitRunnable;
 
+import java.util.Map;
+
+/**
+ * Listens for SkyBlockItems mass tree breaks ({@code TREE_CAPITATOR} extra logs,
+ * {@code THUNDER_STRIKE}) so regrowth queues match normal {@link NewBlockBreak} behavior.
+ */
 public class SkyblockItemsListener implements Listener {
 
-    @EventHandler
-    public void AbilityBlockBreakListener(AbilityBlockBreakEvent event) {
-        if (event.isCancelled()) {
+    private static final String TREE_CAPITATOR = "TREE_CAPITATOR";
+    private static final String THUNDER_STRIKE = "THUNDER_STRIKE";
+
+    @EventHandler(ignoreCancelled = true)
+    public void onAbilityBlockBreak(AbilityBlockBreakEvent event) {
+        String id = event.getAbility().getId();
+        if (!TREE_CAPITATOR.equals(id) && !THUNDER_STRIKE.equals(id)) {
             return;
         }
 
-        event.getBlocks().forEach(this::addToRegeneration);
+        for (Map.Entry<Location, Material> entry : event.getBlocks().entrySet()) {
+            addToRegeneration(entry.getKey(), entry.getValue());
+        }
     }
 
-    @EventHandler
-    public void TreeCapitatorEventListener(TreeCapitatorEvent event) {
-        if (event.isCancelled()) {
+    private void addToRegeneration(Location loc, Material expectedType) {
+        Block block = loc.getBlock();
+        if (block.getType() != expectedType) {
             return;
         }
 
-        event.getBrokenBlocks().forEach(this::addToRegeneration);
-    }
+        Tree tree = RegionsHelper.getTreeByLocation(loc);
+        if (tree == null) {
+            return;
+        }
 
-    public void addToRegeneration(Location k, Material v) {
-        Tree tree = RegionsHelper.getTreeByLocation(k);
-        if(tree!=null){
-            boolean loop = RegionsSkyblock.instance.exists(tree.getKey());
-            RegionsSkyblock.instance.addBlock(tree.getKey(), v.createBlockData().createBlockState().getBlock());
-            if(!loop){
-                new BukkitRunnable() {
-                    @Override
-                    public void run() {
-                        RegionsSkyblock.instance.regenerateByKey(tree.getKey());
-                    }
-                }.runTaskLater(RegionsSkyblock.instance, tree.getDelay());
-            }
+        RegionsSkyblock plugin = RegionsSkyblock.instance;
+        BlockLoc snapshot = new BlockLoc(block);
+        boolean loop = plugin.exists(tree.getKey());
+        plugin.addBlockLoc(tree.getKey(), snapshot);
+        if (!loop) {
+            new BukkitRunnable() {
+                @Override
+                public void run() {
+                    plugin.regenerateByKey(tree.getKey());
+                }
+            }.runTaskLater(plugin, tree.getDelay());
         }
     }
 }

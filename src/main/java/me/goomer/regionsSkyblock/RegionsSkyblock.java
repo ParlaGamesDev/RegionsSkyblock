@@ -116,26 +116,22 @@ public final class RegionsSkyblock extends JavaPlugin {
     }
 
     public void addBlock(String key, Block block){
-        BlockLoc blockLoc = new BlockLoc(block);
-        if(exists(key)){
-            blocks.get(key).add(blockLoc);
-        }
-        else{
-            ArrayList<BlockLoc> list = new ArrayList<>();
-            list.add(blockLoc);
-            blocks.put(key, list);
-        }
+        addBlockLoc(key, new BlockLoc(block));
     }
 
     public void addBlockLoc(String key, BlockLoc blockLoc){
-        if(exists(key)){
-            blocks.get(key).add(blockLoc);
+        ArrayList<BlockLoc> list = blocks.computeIfAbsent(key, k -> new ArrayList<>());
+        for (BlockLoc existing : list) {
+            if (sameGridCell(existing, blockLoc)) {
+                return;
+            }
         }
-        else{
-            ArrayList<BlockLoc> list = new ArrayList<>();
-            list.add(blockLoc);
-            blocks.put(key, list);
-        }
+        list.add(blockLoc);
+    }
+
+    private static boolean sameGridCell(BlockLoc a, BlockLoc b) {
+        return a.getX() == b.getX() && a.getY() == b.getY() && a.getZ() == b.getZ()
+                && a.getWorld().equals(b.getWorld());
     }
 
     public void addStar(String farm, int x, int y, int z, String worldName){

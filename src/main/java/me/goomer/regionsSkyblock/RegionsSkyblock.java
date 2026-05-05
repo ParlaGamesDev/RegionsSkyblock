@@ -4,6 +4,7 @@ import me.goomer.regionsSkyblock.commands.*;
 import me.goomer.regionsSkyblock.events.BlockBreak;
 import me.goomer.regionsSkyblock.events.NewBlockBreak;
 import me.goomer.regionsSkyblock.events.SkyblockItemsListener;
+import me.goomer.regionsSkyblock.hooks.AuraSkillsHook;
 import me.goomer.regionsSkyblock.regions.BlockLoc;
 import me.goomer.regionsSkyblock.regions.Farm;
 import me.goomer.regionsSkyblock.regions.RegionsHelper;
@@ -37,6 +38,7 @@ public final class RegionsSkyblock extends JavaPlugin {
 
     HashMap<String, ArrayList<BlockLoc>> blocks;
     HashMap<String, ItemDisplay> stars;
+    private AuraSkillsHook auraSkillsHook;
 
     @Override
     public void onEnable() {
@@ -45,6 +47,10 @@ public final class RegionsSkyblock extends JavaPlugin {
         saveDefaultConfig();
         blocks = new HashMap<>();
         stars = new HashMap<>();
+
+        if (getServer().getPluginManager().isPluginEnabled("AuraSkills")) {
+            this.auraSkillsHook = new AuraSkillsHook();
+        }
 
         getServer().getPluginManager().registerEvents(new NewBlockBreak(this), this);
         getServer().getPluginManager().registerEvents(new SkyblockItemsListener(), this);
@@ -193,5 +199,13 @@ public final class RegionsSkyblock extends JavaPlugin {
         for(ItemDisplay star : stars.values()){
             star.remove();
         }
+    }
+
+    public AuraSkillsHook getAuraSkillsHook() {
+        return auraSkillsHook;
+    }
+
+    public boolean isAuraSkillsEnabled() {
+        return auraSkillsHook != null;
     }
 }

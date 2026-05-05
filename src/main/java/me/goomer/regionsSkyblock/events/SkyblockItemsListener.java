@@ -31,11 +31,11 @@ public class SkyblockItemsListener implements Listener {
         }
 
         for (Map.Entry<Location, Material> entry : event.getBlocks().entrySet()) {
-            addToRegeneration(entry.getKey(), entry.getValue());
+            addToRegeneration(event.getPlayer(), entry.getKey(), entry.getValue());
         }
     }
 
-    private void addToRegeneration(Location loc, Material expectedType) {
+    private void addToRegeneration(org.bukkit.entity.Player player, Location loc, Material expectedType) {
         Block block = loc.getBlock();
         if (block.getType() != expectedType) {
             return;
@@ -57,6 +57,11 @@ public class SkyblockItemsListener implements Listener {
                     plugin.regenerateByKey(tree.getKey());
                 }
             }.runTaskLater(plugin, tree.getDelay());
+        }
+
+        // AuraSkills Foraging XP Integration
+        if (plugin.isAuraSkillsEnabled() && (expectedType.name().contains("_LOG") || expectedType.name().contains("_STEM") || expectedType.name().contains("_WOOD"))) {
+            plugin.getAuraSkillsHook().addXP(player, "foraging", 5.0);
         }
     }
 }

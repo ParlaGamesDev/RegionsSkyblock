@@ -69,6 +69,11 @@ public class BlockBreak implements Listener {
             if(!loop){
                 respawnTree(tree);
             }
+
+            // AuraSkills Foraging XP Integration
+            if (plugin.isAuraSkillsEnabled() && (block.getType().name().contains("_LOG") || block.getType().name().contains("_STEM") || block.getType().name().contains("_WOOD"))) {
+                plugin.getAuraSkillsHook().addXP(event.getPlayer(), "foraging", 5.0);
+            }
         }
     }
 

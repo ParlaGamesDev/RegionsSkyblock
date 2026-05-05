@@ -3,5 +3,6 @@ version: '1.0'
 main: me.goomer.regionsSkyblock.RegionsSkyblock
 api-version: '1.21'
 depend: [SkyBlockItems]
+softdepend: [AuraSkills]
 commands:
   regions:

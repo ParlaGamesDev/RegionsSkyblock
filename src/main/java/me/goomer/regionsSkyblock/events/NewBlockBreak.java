@@ -29,6 +29,16 @@ public class NewBlockBreak implements Listener {
         Material material = block.getType();
         Location location = block.getLocation();
         BlockLoc blockLoc = new BlockLoc(block);
+
+        // Check for Tree region synchronously for XP and reliable detection
+        Tree tree = helper.getTreeByLocation(location);
+        if (tree != null) {
+            // AuraSkills Foraging XP Integration
+            if (plugin.isAuraSkillsEnabled() && (material.name().contains("_LOG") || material.name().contains("_STEM") || material.name().contains("_WOOD"))) {
+                plugin.getAuraSkillsHook().addXP(event.getPlayer(), "foraging", 5.0);
+            }
+        }
+
         boolean farmCheck = true;
         if(block.getBlockData() instanceof Ageable ageable){
             farmCheck = ageable.getAge()==ageable.getMaximumAge();
@@ -81,7 +91,7 @@ public class NewBlockBreak implements Listener {
 
                     return;
                 }
-                Tree tree = helper.getTreeByLocation(location);
+                // Tree region regrowth logic still runs async
                 if(tree!=null){
                     boolean loop = plugin.exists(tree.getKey());
                     plugin.addBlockLoc(tree.getKey(), blockLoc);

@@ -1,10 +1,10 @@
 package me.goomer.regionsSkyblock;
 
 import me.goomer.regionsSkyblock.commands.*;
-import me.goomer.regionsSkyblock.events.BlockBreak;
 import me.goomer.regionsSkyblock.events.NewBlockBreak;
 import me.goomer.regionsSkyblock.events.SkyblockItemsListener;
 import me.goomer.regionsSkyblock.hooks.AuraSkillsHook;
+import me.goomer.regionsSkyblock.hooks.WorldGuardHook;
 import me.goomer.regionsSkyblock.regions.BlockLoc;
 import me.goomer.regionsSkyblock.regions.Farm;
 import me.goomer.regionsSkyblock.regions.RegionsHelper;
@@ -47,6 +47,8 @@ public final class RegionsSkyblock extends JavaPlugin {
         saveDefaultConfig();
         blocks = new HashMap<>();
         stars = new HashMap<>();
+
+        WorldGuardHook.init();
 
         if (getServer().getPluginManager().isPluginEnabled("AuraSkills")) {
             this.auraSkillsHook = new AuraSkillsHook();

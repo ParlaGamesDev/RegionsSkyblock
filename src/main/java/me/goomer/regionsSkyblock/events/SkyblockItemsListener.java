@@ -2,6 +2,7 @@ package me.goomer.regionsSkyblock.events;
 
 import dev.agam.skyblockitems.api.events.AbilityBlockBreakEvent;
 import me.goomer.regionsSkyblock.RegionsSkyblock;
+import me.goomer.regionsSkyblock.hooks.WorldGuardHook;
 import me.goomer.regionsSkyblock.regions.BlockLoc;
 import me.goomer.regionsSkyblock.regions.RegionsHelper;
 import me.goomer.regionsSkyblock.regions.Tree;
@@ -36,6 +37,9 @@ public class SkyblockItemsListener implements Listener {
     }
 
     private void addToRegeneration(org.bukkit.entity.Player player, Location loc, Material expectedType) {
+        if (WorldGuardHook.hasBypass(player)) {
+            return;
+        }
         Block block = loc.getBlock();
         if (block.getType() != expectedType) {
             return;

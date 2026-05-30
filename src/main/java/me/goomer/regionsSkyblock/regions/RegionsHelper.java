@@ -37,6 +37,9 @@ public class RegionsHelper {
     }
 
     public Mine getMineByLocation(Location location){
+        if (plugin.getConfig().getConfigurationSection("mines") == null) {
+            return null;
+        }
         for(String key : plugin.getConfig().getConfigurationSection("mines").getKeys(false)){
             Mine mine = getMineByKey(key);
             if(mine.contains(location)){

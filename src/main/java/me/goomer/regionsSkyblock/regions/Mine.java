@@ -63,6 +63,13 @@ public class Mine {
     }
 
     public boolean contains(Location loc){
+        if (loc.getWorld() == null || loc1.getWorld() == null) {
+            return false;
+        }
+        if (!loc1.getWorld().equalsIgnoreCase(loc.getWorld().getName())) {
+            return false;
+        }
+
         int minX = Math.min(loc1.getX(), loc2.getX());
         int maxX = Math.max(loc1.getX(), loc2.getX());
         int minY = Math.min(loc1.getY(), loc2.getY());
@@ -70,8 +77,12 @@ public class Mine {
         int minZ = Math.min(loc1.getZ(), loc2.getZ());
         int maxZ = Math.max(loc1.getZ(), loc2.getZ());
 
-        return minX <= loc.getX() && loc.getX() <= maxX &&
-                minZ <= loc.getZ() && loc.getZ() <= maxZ
-                && minY <= loc.getY() && loc.getY() <= maxY;
+        int x = loc.getBlockX();
+        int y = loc.getBlockY();
+        int z = loc.getBlockZ();
+
+        return minX <= x && x <= maxX
+                && minY <= y && y <= maxY
+                && minZ <= z && z <= maxZ;
     }
 }

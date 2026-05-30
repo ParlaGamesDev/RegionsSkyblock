@@ -40,6 +40,9 @@ public class SkyblockItemsListener implements Listener {
         if (WorldGuardHook.hasBypass(player)) {
             return;
         }
+        if (!WorldGuardHook.shouldRegenerateBlock(player, loc, expectedType)) {
+            return;
+        }
         Block block = loc.getBlock();
         if (block.getType() != expectedType) {
             return;

@@ -1,6 +1,7 @@
 package me.goomer.regionsSkyblock;
 
 import me.goomer.regionsSkyblock.commands.*;
+import me.goomer.regionsSkyblock.events.AllowedBlockBreakListener;
 import me.goomer.regionsSkyblock.events.NewBlockBreak;
 import me.goomer.regionsSkyblock.events.SkyblockItemsListener;
 import me.goomer.regionsSkyblock.hooks.AuraSkillsHook;
@@ -41,6 +42,11 @@ public final class RegionsSkyblock extends JavaPlugin {
     private AuraSkillsHook auraSkillsHook;
 
     @Override
+    public void onLoad() {
+        WorldGuardHook.registerFlag();
+    }
+
+    @Override
     public void onEnable() {
         instance = this;
         // Plugin startup logic
@@ -49,11 +55,18 @@ public final class RegionsSkyblock extends JavaPlugin {
         stars = new HashMap<>();
 
         WorldGuardHook.init();
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                WorldGuardHook.reloadFlag();
+            }
+        }.runTaskLater(this, 1L);
 
         if (getServer().getPluginManager().isPluginEnabled("AuraSkills")) {
             this.auraSkillsHook = new AuraSkillsHook();
         }
 
+        getServer().getPluginManager().registerEvents(new AllowedBlockBreakListener(), this);
         getServer().getPluginManager().registerEvents(new NewBlockBreak(this), this);
         getServer().getPluginManager().registerEvents(new SkyblockItemsListener(), this);
         getCommand("regions").setExecutor(new MainCommand(this));

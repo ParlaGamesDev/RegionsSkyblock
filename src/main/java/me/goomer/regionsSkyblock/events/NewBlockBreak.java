@@ -21,7 +21,6 @@ public class NewBlockBreak implements Listener {
 
     private final RegionsSkyblock plugin;
     private final RegionsHelper helper;
-    /** Material before break — at MONITOR the block is already AIR on Paper/Spigot. */
     private final Map<BlockKey, PendingBreak> pendingBreaks = new ConcurrentHashMap<>();
 
     public NewBlockBreak(RegionsSkyblock plugin) {
@@ -42,16 +41,9 @@ public class NewBlockBreak implements Listener {
         );
     }
 
-    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = false)
-    public void discardCancelledBreak(BlockBreakEvent event) {
-        if (event.isCancelled()) {
-            pendingBreaks.remove(BlockKey.from(event.getBlock()));
-        }
-    }
-
     /**
-     * MONITOR runs after SkyblockCore {@code AllowedBlockBreakListener} (HIGHEST) finished.
-     * ignoreCancelled=true → only real breaks (allowed materials) reach here.
+     * Runs after QSkyblockCore uncancels allowed breaks (HIGHEST).
+     * ignoreCancelled=true → only blocks that actually broke.
      */
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onBreak(BlockBreakEvent event) {
@@ -69,7 +61,6 @@ public class NewBlockBreak implements Listener {
         }
 
         Material material = pending.material();
-        BlockLoc blockLoc = pending.blockLoc();
 
         Tree tree = helper.getTreeByLocation(location);
         if (tree != null && isForagingMaterial(material)) {
@@ -89,11 +80,12 @@ public class NewBlockBreak implements Listener {
             if (!WorldGuardHook.shouldRegenerateBlock(player, location, material)) {
                 return;
             }
-            handleMineBreak(mine, location, material, blockLoc);
+            handleMineBreak(mine, location, material);
             return;
         }
 
         if (tree != null) {
+            BlockLoc blockLoc = pending.blockLoc();
             boolean loop = plugin.exists(tree.getKey());
             plugin.addBlockLoc(tree.getKey(), blockLoc);
             if (!loop) {
@@ -102,42 +94,28 @@ public class NewBlockBreak implements Listener {
         }
     }
 
-    private void handleMineBreak(Mine mine, Location location, Material material, BlockLoc blockLoc) {
-        Material original = material;
-        if (material == Material.COBBLESTONE) {
+    private void handleMineBreak(Mine mine, Location location, Material original) {
+        if (original == Material.COBBLESTONE || original == Material.COBBLED_DEEPSLATE) {
             new BukkitRunnable() {
                 @Override
                 public void run() {
-                    Block block = location.getBlock();
-                    if (block.getType() != Material.AIR) {
-                        return;
-                    }
-                    block.setType(Material.BEDROCK);
+                    location.getBlock().setType(Material.BEDROCK);
                 }
-            }.runTaskLater(plugin, 1L);
+            }.runTask(plugin);
             return;
         }
 
         new BukkitRunnable() {
             @Override
             public void run() {
-                Block block = location.getBlock();
-                if (block.getType() != Material.AIR) {
-                    return;
-                }
-                block.setType(Material.COBBLESTONE);
+                location.getBlock().setType(Material.COBBLESTONE);
             }
-        }.runTaskLater(plugin, 1L);
+        }.runTask(plugin);
 
         new BukkitRunnable() {
             @Override
             public void run() {
-                Block block = location.getBlock();
-                Material current = block.getType();
-                if (current != Material.AIR && current != Material.COBBLESTONE) {
-                    return;
-                }
-                block.setType(original);
+                location.getBlock().setType(original);
             }
         }.runTaskLater(plugin, mine.getDelay());
     }
@@ -148,10 +126,6 @@ public class NewBlockBreak implements Listener {
             @Override
             public void run() {
                 Block block = location.getBlock();
-                Material current = block.getType();
-                if (current != Material.AIR && current != original) {
-                    return;
-                }
                 block.setType(original);
                 farm.drawParticle(location, plugin);
                 if (block.getBlockData() instanceof Ageable ageable) {

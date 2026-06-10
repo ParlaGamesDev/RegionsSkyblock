@@ -17,14 +17,17 @@ import org.bukkit.block.Block;
 import org.bukkit.block.data.Ageable;
 import org.bukkit.block.data.Directional;
 import org.bukkit.block.data.Orientable;
-import org.bukkit.entity.Display;
+import org.bukkit.NamespacedKey;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.ItemDisplay;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.SkullMeta;
+import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.profile.PlayerProfile;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.util.Transformation;
 
 import java.net.MalformedURLException;
@@ -39,6 +42,8 @@ public final class RegionsSkyblock extends JavaPlugin {
 
     HashMap<String, ArrayList<BlockLoc>> blocks;
     HashMap<String, ItemDisplay> stars;
+    private NamespacedKey farmStarKey;
+    private BukkitTask starAnimationTask;
     private AuraSkillsHook auraSkillsHook;
 
     @Override
@@ -51,6 +56,7 @@ public final class RegionsSkyblock extends JavaPlugin {
         instance = this;
         // Plugin startup logic
         saveDefaultConfig();
+        farmStarKey = new NamespacedKey(this, "farm-star");
         blocks = new HashMap<>();
         stars = new HashMap<>();
 
@@ -73,28 +79,32 @@ public final class RegionsSkyblock extends JavaPlugin {
 
         regenerateStars();
 
-        new BukkitRunnable() {
+        starAnimationTask = new BukkitRunnable() {
             float yaw = 0;
 
             @Override
             public void run() {
                 yaw += 3;
-                for(ItemDisplay star : stars.values()){
+                for (ItemDisplay star : stars.values()) {
+                    if (!star.isValid()) {
+                        continue;
+                    }
                     star.setRotation(yaw, 0);
                     Location l = star.getLocation();
-                    l.setY(l.getY() + Math.sin(yaw/30) * 0.02);
+                    l.setY(l.getY() + Math.sin(yaw / 30) * 0.02);
                     star.teleport(l);
                 }
-
             }
         }.runTaskTimer(this, 0L, 1L);
-
     }
 
     @Override
     public void onDisable() {
-        // Plugin shutdown logic
+        if (starAnimationTask != null) {
+            starAnimationTask.cancel();
+        }
         removeAllStars();
+        stars.clear();
     }
 
     public void regenerateFirst(String key, boolean isStar){
@@ -155,25 +165,65 @@ public final class RegionsSkyblock extends JavaPlugin {
                 && a.getWorld().equals(b.getWorld());
     }
 
-    public void addStar(String farm, int x, int y, int z, String worldName){
-        ItemStack head = createHead();
-
+    public void addStar(String farm, int x, int y, int z, String worldName) {
         World world = Bukkit.getWorld(worldName);
+        if (world == null) {
+            return;
+        }
+
         Location location = new Location(world, x, y, z);
+        ItemDisplay existing = findExistingStar(world, location, farm);
+        if (existing != null) {
+            existing.teleport(location);
+            applyStarAppearance(existing);
+            stars.put(farm, existing);
+            return;
+        }
 
-        ItemDisplay star = (ItemDisplay) world.spawnEntity(
-                location,
-                EntityType.ITEM_DISPLAY
-        );
+        removeOrphanStars(world, location, farm);
 
-        star.setItemStack(head);
+        ItemDisplay star = (ItemDisplay) world.spawnEntity(location, EntityType.ITEM_DISPLAY);
+        applyStarAppearance(star);
+        star.getPersistentDataContainer().set(farmStarKey, PersistentDataType.STRING, farm);
+        stars.put(farm, star);
+    }
+
+    private ItemDisplay findExistingStar(World world, Location location, String farm) {
+        for (Entity entity : world.getNearbyEntities(location, 3, 3, 3)) {
+            if (!(entity instanceof ItemDisplay display)) {
+                continue;
+            }
+            String taggedFarm = display.getPersistentDataContainer().get(farmStarKey, PersistentDataType.STRING);
+            if (farm.equals(taggedFarm)) {
+                return display;
+            }
+        }
+        return null;
+    }
+
+    private void removeOrphanStars(World world, Location location, String farm) {
+        ItemDisplay tracked = stars.remove(farm);
+        if (tracked != null && tracked.isValid()) {
+            tracked.remove();
+        }
+
+        for (Entity entity : world.getNearbyEntities(location, 3, 3, 3)) {
+            if (!(entity instanceof ItemDisplay display)) {
+                continue;
+            }
+            String taggedFarm = display.getPersistentDataContainer().get(farmStarKey, PersistentDataType.STRING);
+            if (farm.equals(taggedFarm) || taggedFarm == null) {
+                display.remove();
+            }
+        }
+    }
+
+    private void applyStarAppearance(ItemDisplay star) {
+        star.setItemStack(createHead());
 
         Transformation t = star.getTransformation();
         t.getScale().set(0.6f);
         star.setTransformation(t);
-
-        stars.put(farm, star);
-
     }
 
     public ItemStack createHead(){
@@ -195,9 +245,11 @@ public final class RegionsSkyblock extends JavaPlugin {
         return head;
     }
 
-    public void removeStar(String farm){
-        if(stars.containsKey(farm))
-            stars.get(farm).remove();
+    public void removeStar(String farm) {
+        ItemDisplay star = stars.remove(farm);
+        if (star != null && star.isValid()) {
+            star.remove();
+        }
     }
 
     public void regenerateStars(){
@@ -210,9 +262,11 @@ public final class RegionsSkyblock extends JavaPlugin {
         }
     }
 
-    public void removeAllStars(){
-        for(ItemDisplay star : stars.values()){
-            star.remove();
+    public void removeAllStars() {
+        for (ItemDisplay star : stars.values()) {
+            if (star.isValid()) {
+                star.remove();
+            }
         }
     }
 

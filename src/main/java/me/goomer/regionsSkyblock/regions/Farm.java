@@ -99,7 +99,15 @@ public class Farm {
                 }
                 for (int i = 0; i <= pointsPerLine; i++) {
                     Location point = star.clone().add(vector.clone().multiply(i));
-                    star.getWorld().spawnParticle(Particle.INSTANT_EFFECT, point, 1, 0, 0, 0);
+                    star.getWorld().spawnParticle(
+                            Particle.INSTANT_EFFECT,
+                            point,
+                            1,
+                            0,
+                            0,
+                            0,
+                            new Particle.Spell(Color.fromRGB(255, 255, 200), 1.0f)
+                    );
                 }
                 ticks++;
             }

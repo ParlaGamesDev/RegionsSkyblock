@@ -18,6 +18,7 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.scheduler.BukkitTask;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -30,6 +31,8 @@ public class NewBlockBreak implements Listener {
     private final RegionsSkyblock plugin;
     private final RegionsHelper helper;
     private final Map<BlockKey, PendingBreak> pendingBreaks = new ConcurrentHashMap<>();
+    private final Map<BlockKey, BlockData> mineRestoreTargets = new ConcurrentHashMap<>();
+    private final Map<BlockKey, BukkitTask> pendingMineRestores = new ConcurrentHashMap<>();
 
     public NewBlockBreak(RegionsSkyblock plugin) {
         this.plugin = plugin;
@@ -180,9 +183,21 @@ public class NewBlockBreak implements Listener {
         return column.stream().sorted(order).toList();
     }
 
-    private void handleMineBreak(Mine mine, Location location, BlockData original) {
-        Material originalMaterial = original.getMaterial();
-        Material immediateType = isCobbleVariant(originalMaterial) ? Material.BEDROCK : Material.COBBLESTONE;
+    private void handleMineBreak(Mine mine, Location location, BlockData broken) {
+        BlockKey key = BlockKey.from(location);
+        Material brokenMaterial = broken.getMaterial();
+        Material immediateType = isCobbleVariant(brokenMaterial) ? Material.BEDROCK : Material.COBBLESTONE;
+
+        BlockData restoreTarget;
+        if (isCobbleVariant(brokenMaterial)) {
+            BlockData storedOriginal = mineRestoreTargets.get(key);
+            restoreTarget = storedOriginal != null ? storedOriginal.clone() : broken.clone();
+        } else {
+            restoreTarget = broken.clone();
+            mineRestoreTargets.put(key, restoreTarget.clone());
+        }
+
+        cancelPendingMineRestore(key);
 
         new BukkitRunnable() {
             @Override
@@ -191,13 +206,23 @@ public class NewBlockBreak implements Listener {
             }
         }.runTask(plugin);
 
-        BlockData restored = original.clone();
-        new BukkitRunnable() {
+        BlockData restored = restoreTarget.clone();
+        BukkitTask restoreTask = new BukkitRunnable() {
             @Override
             public void run() {
                 location.getBlock().setBlockData(restored);
+                pendingMineRestores.remove(key);
+                mineRestoreTargets.remove(key);
             }
         }.runTaskLater(plugin, mine.getDelay());
+        pendingMineRestores.put(key, restoreTask);
+    }
+
+    private void cancelPendingMineRestore(BlockKey key) {
+        BukkitTask task = pendingMineRestores.remove(key);
+        if (task != null) {
+            task.cancel();
+        }
     }
 
     private static boolean isCobbleVariant(Material material) {
@@ -236,8 +261,16 @@ public class NewBlockBreak implements Listener {
 
     private record BlockKey(String world, int x, int y, int z) {
         static BlockKey from(Block block) {
-            Location loc = block.getLocation();
-            return new BlockKey(loc.getWorld().getName(), loc.getBlockX(), loc.getBlockY(), loc.getBlockZ());
+            return from(block.getLocation());
+        }
+
+        static BlockKey from(Location location) {
+            return new BlockKey(
+                    location.getWorld().getName(),
+                    location.getBlockX(),
+                    location.getBlockY(),
+                    location.getBlockZ()
+            );
         }
 
         Location toLocation() {

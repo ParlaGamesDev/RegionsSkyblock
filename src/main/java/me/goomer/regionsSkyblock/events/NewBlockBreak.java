@@ -3,10 +3,15 @@ package me.goomer.regionsSkyblock.events;
 import me.goomer.regionsSkyblock.RegionsSkyblock;
 import me.goomer.regionsSkyblock.hooks.WorldGuardHook;
 import me.goomer.regionsSkyblock.regions.*;
+import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.World;
 import org.bukkit.block.Block;
+import org.bukkit.block.BlockFace;
 import org.bukkit.block.data.Ageable;
+import org.bukkit.block.data.BlockData;
+import org.bukkit.block.data.type.PointedDripstone;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -14,6 +19,9 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.scheduler.BukkitRunnable;
 
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -35,9 +43,13 @@ public class NewBlockBreak implements Listener {
         if (block.getBlockData() instanceof Ageable ageable) {
             cropFullyMature = ageable.getAge() == ageable.getMaximumAge();
         }
+        BlockData blockData = block.getBlockData().clone();
+        List<DripstoneSnapshot> dripstoneColumn = blockData.getMaterial() == Material.POINTED_DRIPSTONE
+                ? collectDripstoneColumn(block)
+                : List.of();
         pendingBreaks.put(
                 BlockKey.from(block),
-                new PendingBreak(block.getType(), new BlockLoc(block), cropFullyMature)
+                new PendingBreak(blockData, new BlockLoc(block), cropFullyMature, dripstoneColumn)
         );
     }
 
@@ -52,7 +64,7 @@ public class NewBlockBreak implements Listener {
         Location location = block.getLocation();
 
         PendingBreak pending = pendingBreaks.remove(BlockKey.from(block));
-        if (pending == null || pending.material().isAir()) {
+        if (pending == null || pending.blockData().getMaterial().isAir()) {
             return;
         }
 
@@ -60,7 +72,8 @@ public class NewBlockBreak implements Listener {
             return;
         }
 
-        Material material = pending.material();
+        BlockData blockData = pending.blockData();
+        Material material = blockData.getMaterial();
 
         Tree tree = helper.getTreeByLocation(location);
         if (tree != null && isForagingMaterial(material)) {
@@ -80,7 +93,11 @@ public class NewBlockBreak implements Listener {
             if (!WorldGuardHook.shouldRegenerateBlock(player, location, material)) {
                 return;
             }
-            handleMineBreak(mine, location, material);
+            if (material == Material.POINTED_DRIPSTONE && !pending.dripstoneColumn().isEmpty()) {
+                handleDripstoneColumnBreak(mine, BlockKey.from(block), pending.dripstoneColumn());
+            } else {
+                handleMineBreak(mine, location, blockData);
+            }
             return;
         }
 
@@ -94,30 +111,97 @@ public class NewBlockBreak implements Listener {
         }
     }
 
-    private void handleMineBreak(Mine mine, Location location, Material original) {
-        if (original == Material.COBBLESTONE || original == Material.COBBLED_DEEPSLATE) {
-            new BukkitRunnable() {
-                @Override
-                public void run() {
-                    location.getBlock().setType(Material.BEDROCK);
-                }
-            }.runTask(plugin);
+    private void handleDripstoneColumnBreak(Mine mine, BlockKey brokenKey, List<DripstoneSnapshot> column) {
+        Location brokenLocation = brokenKey.toLocation();
+        if (brokenLocation == null) {
             return;
         }
 
         new BukkitRunnable() {
             @Override
             public void run() {
-                location.getBlock().setType(Material.COBBLESTONE);
+                brokenLocation.getBlock().setType(Material.COBBLESTONE);
             }
         }.runTask(plugin);
+
+        List<DripstoneSnapshot> restoreOrder = sortDripstoneColumnForRestore(column);
+        int delay = mine.getDelay();
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                for (DripstoneSnapshot snapshot : restoreOrder) {
+                    Location location = snapshot.key().toLocation();
+                    if (location == null) {
+                        continue;
+                    }
+                    location.getBlock().setBlockData(snapshot.blockData().clone());
+                }
+            }
+        }.runTaskLater(plugin, delay);
+    }
+
+    private static List<DripstoneSnapshot> collectDripstoneColumn(Block origin) {
+        if (origin.getType() != Material.POINTED_DRIPSTONE) {
+            return List.of();
+        }
+
+        PointedDripstone originData = (PointedDripstone) origin.getBlockData();
+        BlockFace direction = originData.getVerticalDirection();
+
+        List<DripstoneSnapshot> blocks = new ArrayList<>();
+        collectDripstoneInDirection(origin, BlockFace.UP, direction, blocks);
+        blocks.add(new DripstoneSnapshot(BlockKey.from(origin), origin.getBlockData().clone()));
+        collectDripstoneInDirection(origin, BlockFace.DOWN, direction, blocks);
+        return blocks;
+    }
+
+    private static void collectDripstoneInDirection(
+            Block start,
+            BlockFace step,
+            BlockFace direction,
+            List<DripstoneSnapshot> blocks
+    ) {
+        Block current = start.getRelative(step);
+        while (current.getType() == Material.POINTED_DRIPSTONE) {
+            PointedDripstone dripstone = (PointedDripstone) current.getBlockData();
+            if (dripstone.getVerticalDirection() != direction) {
+                break;
+            }
+            blocks.add(new DripstoneSnapshot(BlockKey.from(current), current.getBlockData().clone()));
+            current = current.getRelative(step);
+        }
+    }
+
+    private static List<DripstoneSnapshot> sortDripstoneColumnForRestore(List<DripstoneSnapshot> column) {
+        BlockFace direction = ((PointedDripstone) column.getFirst().blockData()).getVerticalDirection();
+        Comparator<DripstoneSnapshot> order = direction == BlockFace.DOWN
+                ? Comparator.comparingInt(snapshot -> -snapshot.key().y())
+                : Comparator.comparingInt(snapshot -> snapshot.key().y());
+        return column.stream().sorted(order).toList();
+    }
+
+    private void handleMineBreak(Mine mine, Location location, BlockData original) {
+        Material originalMaterial = original.getMaterial();
+        Material immediateType = isCobbleVariant(originalMaterial) ? Material.BEDROCK : Material.COBBLESTONE;
 
         new BukkitRunnable() {
             @Override
             public void run() {
-                location.getBlock().setType(original);
+                location.getBlock().setType(immediateType);
+            }
+        }.runTask(plugin);
+
+        BlockData restored = original.clone();
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                location.getBlock().setBlockData(restored);
             }
         }.runTaskLater(plugin, mine.getDelay());
+    }
+
+    private static boolean isCobbleVariant(Material material) {
+        return material == Material.COBBLESTONE || material == Material.COBBLED_DEEPSLATE;
     }
 
     private void scheduleFarmRestore(Location location, Material material, Farm farm) {
@@ -155,8 +239,24 @@ public class NewBlockBreak implements Listener {
             Location loc = block.getLocation();
             return new BlockKey(loc.getWorld().getName(), loc.getBlockX(), loc.getBlockY(), loc.getBlockZ());
         }
+
+        Location toLocation() {
+            World bukkitWorld = Bukkit.getWorld(world);
+            if (bukkitWorld == null) {
+                return null;
+            }
+            return new Location(bukkitWorld, x, y, z);
+        }
     }
 
-    private record PendingBreak(Material material, BlockLoc blockLoc, boolean cropFullyMature) {
+    private record DripstoneSnapshot(BlockKey key, BlockData blockData) {
+    }
+
+    private record PendingBreak(
+            BlockData blockData,
+            BlockLoc blockLoc,
+            boolean cropFullyMature,
+            List<DripstoneSnapshot> dripstoneColumn
+    ) {
     }
 }

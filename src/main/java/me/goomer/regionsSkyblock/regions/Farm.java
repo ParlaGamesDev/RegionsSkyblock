@@ -8,8 +8,6 @@ import org.bukkit.block.Block;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.util.Vector;
 
-import java.util.Random;
-
 public class Farm {
     private String key, block;
     private int minDelay, maxDelay;
@@ -48,8 +46,7 @@ public class Farm {
     }
 
     public int getDelay() {
-        Random random = new Random();
-        return random.nextInt(minDelay, maxDelay+1);
+        return Mine.randomDelay(minDelay, maxDelay);
     }
 
     public int getMinDelay() {
@@ -80,40 +77,30 @@ public class Farm {
         return block.getRelative(0, -2, 0).getType().name().equals(this.block);
     }
 
-    public void drawParticle(Location end, RegionsSkyblock plugin){
+    public void drawParticle(Location crop, RegionsSkyblock plugin){
         if(star == null)
             return;
-        end.add(0.5, 0.5, 0.5);
-        Location star = new Location(end.getWorld(), this.star.getX() + 0.5, this.star.getY() + 0.5, this.star.getZ() + 0.5);
+        Location end = crop.clone().add(0.5, 0.5, 0.5);
         int pointsPerLine = 20;
-        Vector vector = end.clone().subtract(star).toVector().multiply(1.0 / pointsPerLine);
         int DELAY = 20;
+        Particle.Spell spell = new Particle.Spell(Color.fromRGB(255, 255, 200), 1.0f);
 
         new BukkitRunnable() {
             int ticks = 0;
             @Override
             public void run() {
-                if (ticks > DELAY) {
+                Location from = plugin.getStarManager().beamTarget(key);
+                if (ticks > DELAY || from == null || end.getWorld() == null || !end.getWorld().equals(from.getWorld())) {
                     cancel();
                     return;
                 }
+                Vector step = end.toVector().subtract(from.toVector()).multiply(1.0 / pointsPerLine);
                 for (int i = 0; i <= pointsPerLine; i++) {
-                    Location point = star.clone().add(vector.clone().multiply(i));
-                    star.getWorld().spawnParticle(
-                            Particle.INSTANT_EFFECT,
-                            point,
-                            1,
-                            0,
-                            0,
-                            0,
-                            new Particle.Spell(Color.fromRGB(255, 255, 200), 1.0f)
-                    );
+                    Location point = from.clone().add(step.clone().multiply(i));
+                    end.getWorld().spawnParticle(Particle.INSTANT_EFFECT, point, 1, 0, 0, 0, spell);
                 }
                 ticks++;
             }
-        }.runTaskTimer(plugin, 0L, 1); // כל טיק
-
-
-
+        }.runTaskTimer(plugin, 0L, 1);
     }
 }

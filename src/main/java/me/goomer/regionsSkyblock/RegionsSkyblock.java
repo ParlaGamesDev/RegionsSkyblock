@@ -7,43 +7,27 @@ import me.goomer.regionsSkyblock.events.SkyblockItemsListener;
 import me.goomer.regionsSkyblock.hooks.AuraSkillsHook;
 import me.goomer.regionsSkyblock.hooks.WorldGuardHook;
 import me.goomer.regionsSkyblock.regions.BlockLoc;
-import me.goomer.regionsSkyblock.regions.Farm;
-import me.goomer.regionsSkyblock.regions.RegionsHelper;
-import org.bukkit.Bukkit;
-import org.bukkit.Location;
+import me.goomer.regionsSkyblock.regions.Loc;
+import me.goomer.regionsSkyblock.stars.StarManager;
 import org.bukkit.Material;
-import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.data.Ageable;
-import org.bukkit.block.data.Directional;
 import org.bukkit.block.data.Orientable;
-import org.bukkit.NamespacedKey;
-import org.bukkit.entity.Entity;
-import org.bukkit.entity.EntityType;
-import org.bukkit.entity.ItemDisplay;
-import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.SkullMeta;
-import org.bukkit.persistence.PersistentDataType;
+import org.bukkit.command.PluginCommand;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.bukkit.profile.PlayerProfile;
 import org.bukkit.scheduler.BukkitRunnable;
-import org.bukkit.scheduler.BukkitTask;
-import org.bukkit.util.Transformation;
 
-import java.net.MalformedURLException;
-import java.net.URI;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.UUID;
+import java.util.logging.Level;
 
 public final class RegionsSkyblock extends JavaPlugin {
 
     public static RegionsSkyblock instance;
 
     HashMap<String, ArrayList<BlockLoc>> blocks;
-    HashMap<String, ItemDisplay> stars;
-    private NamespacedKey farmStarKey;
-    private BukkitTask starAnimationTask;
+    private StarManager starManager;
+    private NewBlockBreak blockBreakListener;
     private AuraSkillsHook auraSkillsHook;
 
     @Override
@@ -54,11 +38,8 @@ public final class RegionsSkyblock extends JavaPlugin {
     @Override
     public void onEnable() {
         instance = this;
-        // Plugin startup logic
         saveDefaultConfig();
-        farmStarKey = new NamespacedKey(this, "farm-star");
         blocks = new HashMap<>();
-        stars = new HashMap<>();
 
         WorldGuardHook.init();
         new BukkitRunnable() {
@@ -69,42 +50,53 @@ public final class RegionsSkyblock extends JavaPlugin {
         }.runTaskLater(this, 1L);
 
         if (getServer().getPluginManager().isPluginEnabled("AuraSkills")) {
-            this.auraSkillsHook = new AuraSkillsHook();
+            try {
+                this.auraSkillsHook = new AuraSkillsHook();
+            } catch (Throwable e) {
+                getLogger().log(Level.WARNING, "AuraSkills hook failed, foraging XP disabled", e);
+            }
         }
 
+        blockBreakListener = new NewBlockBreak(this);
         getServer().getPluginManager().registerEvents(new AllowedBlockBreakListener(), this);
-        getServer().getPluginManager().registerEvents(new NewBlockBreak(this), this);
-        getServer().getPluginManager().registerEvents(new SkyblockItemsListener(), this);
-        getCommand("regions").setExecutor(new MainCommand(this));
+        getServer().getPluginManager().registerEvents(blockBreakListener, this);
+        if (getServer().getPluginManager().isPluginEnabled("SkyBlockItems")) {
+            getServer().getPluginManager().registerEvents(new SkyblockItemsListener(), this);
+        } else {
+            getLogger().warning("SkyBlockItems is not enabled - tree capitator / thunder strike regrowth disabled.");
+        }
 
-        regenerateStars();
+        PluginCommand command = getCommand("regions");
+        if (command != null) {
+            command.setExecutor(new MainCommand(this));
+        }
 
-        starAnimationTask = new BukkitRunnable() {
-            float yaw = 0;
-
-            @Override
-            public void run() {
-                yaw += 3;
-                for (ItemDisplay star : stars.values()) {
-                    if (!star.isValid()) {
-                        continue;
-                    }
-                    star.setRotation(yaw, 0);
-                    Location l = star.getLocation();
-                    l.setY(l.getY() + Math.sin(yaw / 30) * 0.02);
-                    star.teleport(l);
-                }
-            }
-        }.runTaskTimer(this, 0L, 1L);
+        starManager = new StarManager(this);
+        getServer().getPluginManager().registerEvents(starManager, this);
+        starManager.start();
     }
 
     @Override
     public void onDisable() {
-        if (starAnimationTask != null) {
-            starAnimationTask.cancel();
+        regenerateEverything();
+        if (starManager != null) {
+            starManager.shutdown();
         }
-        removeAllStars();
-        stars.clear();
+    }
+
+    /** Immediately puts back every broken tree, farm crop and mine block still waiting to regenerate. */
+    public int regenerateEverything() {
+        int restored = 0;
+        if (blockBreakListener != null) {
+            restored += blockBreakListener.restoreAllNow();
+        }
+        if (blocks != null) {
+            for (ArrayList<BlockLoc> list : blocks.values()) {
+                restored += list.size();
+            }
+            regenerateAll();
+        }
+        return restored;
     }
 
     public void regenerateFirst(String key, boolean isStar){
@@ -112,7 +104,15 @@ public final class RegionsSkyblock extends JavaPlugin {
         if(rblocks != null && !rblocks.isEmpty()){
             BlockLoc blockLoc = rblocks.removeFirst();
             Block block = blockLoc.getBlockAt();
-            block.setType(Material.getMaterial(blockLoc.getBlock()));
+            if (block != null && blockLoc.getBlockData() != null) {
+                block.setBlockData(blockLoc.getBlockData());
+                return;
+            }
+            Material material = Material.getMaterial(blockLoc.getBlock());
+            if (block == null || material == null) {
+                return;
+            }
+            block.setType(material);
             if(block.getBlockData() instanceof Ageable ageable){
                 ageable.setAge(ageable.getMaximumAge());
                 block.setBlockData(ageable);
@@ -166,108 +166,15 @@ public final class RegionsSkyblock extends JavaPlugin {
     }
 
     public void addStar(String farm, int x, int y, int z, String worldName) {
-        World world = Bukkit.getWorld(worldName);
-        if (world == null) {
-            return;
-        }
-
-        Location location = new Location(world, x, y, z);
-        ItemDisplay existing = findExistingStar(world, location, farm);
-        if (existing != null) {
-            existing.teleport(location);
-            applyStarAppearance(existing);
-            stars.put(farm, existing);
-            return;
-        }
-
-        removeOrphanStars(world, location, farm);
-
-        ItemDisplay star = (ItemDisplay) world.spawnEntity(location, EntityType.ITEM_DISPLAY);
-        applyStarAppearance(star);
-        star.getPersistentDataContainer().set(farmStarKey, PersistentDataType.STRING, farm);
-        stars.put(farm, star);
-    }
-
-    private ItemDisplay findExistingStar(World world, Location location, String farm) {
-        for (Entity entity : world.getNearbyEntities(location, 3, 3, 3)) {
-            if (!(entity instanceof ItemDisplay display)) {
-                continue;
-            }
-            String taggedFarm = display.getPersistentDataContainer().get(farmStarKey, PersistentDataType.STRING);
-            if (farm.equals(taggedFarm)) {
-                return display;
-            }
-        }
-        return null;
-    }
-
-    private void removeOrphanStars(World world, Location location, String farm) {
-        ItemDisplay tracked = stars.remove(farm);
-        if (tracked != null && tracked.isValid()) {
-            tracked.remove();
-        }
-
-        for (Entity entity : world.getNearbyEntities(location, 3, 3, 3)) {
-            if (!(entity instanceof ItemDisplay display)) {
-                continue;
-            }
-            String taggedFarm = display.getPersistentDataContainer().get(farmStarKey, PersistentDataType.STRING);
-            if (farm.equals(taggedFarm) || taggedFarm == null) {
-                display.remove();
-            }
-        }
-    }
-
-    private void applyStarAppearance(ItemDisplay star) {
-        star.setItemStack(createHead());
-
-        Transformation t = star.getTransformation();
-        t.getScale().set(0.6f);
-        star.setTransformation(t);
-    }
-
-    public ItemStack createHead(){
-        String string = getConfig().getString("head");
-        ItemStack head = new ItemStack(Material.PLAYER_HEAD);
-        SkullMeta meta = (SkullMeta) head.getItemMeta();
-
-        PlayerProfile profile = Bukkit.createPlayerProfile(UUID.randomUUID());
-
-        try {
-            profile.getTextures().setSkin(URI.create(string).toURL());
-        } catch (MalformedURLException e) {
-            throw new RuntimeException(e);
-        }
-
-        meta.setOwnerProfile(profile);
-        head.setItemMeta(meta);
-
-        return head;
+        starManager.spawn(farm, new Loc(x, y, z, worldName));
     }
 
     public void removeStar(String farm) {
-        ItemDisplay star = stars.remove(farm);
-        if (star != null && star.isValid()) {
-            star.remove();
-        }
+        starManager.remove(farm);
     }
 
-    public void regenerateStars(){
-        RegionsHelper helper = new RegionsHelper(this);
-        ArrayList<Farm> farms = helper.getAllFarms();
-        for(Farm f : farms){
-            if(f.getStar() != null){
-                addStar(f.getKey(), f.getStar().getX(), f.getStar().getY(), f.getStar().getZ(), f.getStar().getWorld());
-            }
-        }
-    }
-
-    public void removeAllStars() {
-        for (ItemDisplay star : stars.values()) {
-            if (star.isValid()) {
-                star.remove();
-            }
-        }
+    public StarManager getStarManager() {
+        return starManager;
     }
 
     public AuraSkillsHook getAuraSkillsHook() {

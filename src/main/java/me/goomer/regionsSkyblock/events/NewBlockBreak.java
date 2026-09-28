@@ -17,6 +17,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.event.block.LeavesDecayEvent;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
 
@@ -25,18 +26,59 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.logging.Level;
 
 public class NewBlockBreak implements Listener {
+
+    private static final long MIN_FARM_REGEN_TICKS = 200L;
 
     private final RegionsSkyblock plugin;
     private final RegionsHelper helper;
     private final Map<BlockKey, PendingBreak> pendingBreaks = new ConcurrentHashMap<>();
     private final Map<BlockKey, BlockData> mineRestoreTargets = new ConcurrentHashMap<>();
-    private final Map<BlockKey, BukkitTask> pendingMineRestores = new ConcurrentHashMap<>();
+    private final Map<BlockKey, ScheduledRestore> scheduledRestores = new ConcurrentHashMap<>();
 
     public NewBlockBreak(RegionsSkyblock plugin) {
         this.plugin = plugin;
         this.helper = new RegionsHelper(plugin);
+    }
+
+    /** Puts back every block still waiting to regenerate. Must not schedule tasks (used from onDisable). */
+    public int restoreAllNow() {
+        List<ScheduledRestore> pending = List.copyOf(scheduledRestores.values());
+        for (ScheduledRestore restore : pending) {
+            restore.task().cancel();
+            try {
+                restore.restore().run();
+            } catch (RuntimeException e) {
+                plugin.getLogger().log(Level.WARNING, "Could not restore a block on shutdown", e);
+            }
+        }
+        scheduledRestores.clear();
+        mineRestoreTargets.clear();
+        return pending.size();
+    }
+
+    private void scheduleRestore(BlockKey key, long delay, Runnable restore, Runnable effect) {
+        cancelRestore(key);
+        BukkitTask task = new BukkitRunnable() {
+            @Override
+            public void run() {
+                scheduledRestores.remove(key);
+                restore.run();
+                if (effect != null) {
+                    effect.run();
+                }
+            }
+        }.runTaskLater(plugin, Math.max(1L, delay));
+        scheduledRestores.put(key, new ScheduledRestore(task, restore));
+    }
+
+    private void cancelRestore(BlockKey key) {
+        ScheduledRestore previous = scheduledRestores.remove(key);
+        if (previous != null) {
+            previous.task().cancel();
+        }
     }
 
     @EventHandler(priority = EventPriority.LOWEST)
@@ -58,16 +100,15 @@ public class NewBlockBreak implements Listener {
 
     /**
      * Runs after QSkyblockCore uncancels allowed breaks (HIGHEST).
-     * ignoreCancelled=true → only blocks that actually broke.
      */
-    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    @EventHandler(priority = EventPriority.MONITOR)
     public void onBreak(BlockBreakEvent event) {
         Player player = event.getPlayer();
         Block block = event.getBlock();
         Location location = block.getLocation();
 
         PendingBreak pending = pendingBreaks.remove(BlockKey.from(block));
-        if (pending == null || pending.blockData().getMaterial().isAir()) {
+        if (event.isCancelled() || pending == null || pending.blockData().getMaterial().isAir()) {
             return;
         }
 
@@ -114,6 +155,13 @@ public class NewBlockBreak implements Listener {
         }
     }
 
+    @EventHandler(ignoreCancelled = true)
+    public void onLeavesDecay(LeavesDecayEvent event) {
+        if (RegionsHelper.getTreeByLocation(event.getBlock().getLocation()) != null) {
+            event.setCancelled(true);
+        }
+    }
+
     private void handleDripstoneColumnBreak(Mine mine, BlockKey brokenKey, List<DripstoneSnapshot> column) {
         Location brokenLocation = brokenKey.toLocation();
         if (brokenLocation == null) {
@@ -128,19 +176,15 @@ public class NewBlockBreak implements Listener {
         }.runTask(plugin);
 
         List<DripstoneSnapshot> restoreOrder = sortDripstoneColumnForRestore(column);
-        int delay = mine.getDelay();
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                for (DripstoneSnapshot snapshot : restoreOrder) {
-                    Location location = snapshot.key().toLocation();
-                    if (location == null) {
-                        continue;
-                    }
-                    location.getBlock().setBlockData(snapshot.blockData().clone());
+        scheduleRestore(brokenKey, mine.getDelay(), () -> {
+            for (DripstoneSnapshot snapshot : restoreOrder) {
+                Location location = snapshot.key().toLocation();
+                if (location == null) {
+                    continue;
                 }
+                location.getBlock().setBlockData(snapshot.blockData().clone());
             }
-        }.runTaskLater(plugin, delay);
+        }, null);
     }
 
     private static List<DripstoneSnapshot> collectDripstoneColumn(Block origin) {
@@ -197,8 +241,6 @@ public class NewBlockBreak implements Listener {
             mineRestoreTargets.put(key, restoreTarget.clone());
         }
 
-        cancelPendingMineRestore(key);
-
         new BukkitRunnable() {
             @Override
             public void run() {
@@ -207,22 +249,10 @@ public class NewBlockBreak implements Listener {
         }.runTask(plugin);
 
         BlockData restored = restoreTarget.clone();
-        BukkitTask restoreTask = new BukkitRunnable() {
-            @Override
-            public void run() {
-                location.getBlock().setBlockData(restored);
-                pendingMineRestores.remove(key);
-                mineRestoreTargets.remove(key);
-            }
-        }.runTaskLater(plugin, mine.getDelay());
-        pendingMineRestores.put(key, restoreTask);
-    }
-
-    private void cancelPendingMineRestore(BlockKey key) {
-        BukkitTask task = pendingMineRestores.remove(key);
-        if (task != null) {
-            task.cancel();
-        }
+        scheduleRestore(key, mine.getDelay(), () -> {
+            location.getBlock().setBlockData(restored);
+            mineRestoreTargets.remove(key);
+        }, null);
     }
 
     private static boolean isCobbleVariant(Material material) {
@@ -230,19 +260,15 @@ public class NewBlockBreak implements Listener {
     }
 
     private void scheduleFarmRestore(Location location, Material material, Farm farm) {
-        Material original = material;
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                Block block = location.getBlock();
-                block.setType(original);
-                farm.drawParticle(location, plugin);
-                if (block.getBlockData() instanceof Ageable ageable) {
-                    ageable.setAge(ageable.getMaximumAge());
-                    block.setBlockData(ageable);
-                }
+        long delay = Math.max(farm.getDelay(), MIN_FARM_REGEN_TICKS);
+        scheduleRestore(BlockKey.from(location), delay, () -> {
+            Block block = location.getBlock();
+            block.setType(material);
+            if (block.getBlockData() instanceof Ageable ageable) {
+                ageable.setAge(ageable.getMaximumAge());
+                block.setBlockData(ageable);
             }
-        }.runTaskLater(plugin, farm.getDelay());
+        }, () -> farm.drawParticle(location, plugin));
     }
 
     private void respawnTree(Tree tree) {
@@ -283,6 +309,9 @@ public class NewBlockBreak implements Listener {
     }
 
     private record DripstoneSnapshot(BlockKey key, BlockData blockData) {
+    }
+
+    private record ScheduledRestore(BukkitTask task, Runnable restore) {
     }
 
     private record PendingBreak(

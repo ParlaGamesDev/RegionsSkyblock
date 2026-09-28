@@ -2,7 +2,7 @@ package me.goomer.regionsSkyblock.regions;
 
 import org.bukkit.Location;
 
-import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
 
 public class Mine {
     private Loc loc1, loc2;
@@ -18,8 +18,13 @@ public class Mine {
     }
 
     public int getDelay() {
-        Random random = new Random();
-        return random.nextInt(minDelay, maxDelay+1);
+        return randomDelay(minDelay, maxDelay);
+    }
+
+    static int randomDelay(int minDelay, int maxDelay) {
+        int min = Math.max(1, Math.min(minDelay, maxDelay));
+        int max = Math.max(min, Math.max(minDelay, maxDelay));
+        return ThreadLocalRandom.current().nextInt(min, max + 1);
     }
 
     public int getMinDelay() {

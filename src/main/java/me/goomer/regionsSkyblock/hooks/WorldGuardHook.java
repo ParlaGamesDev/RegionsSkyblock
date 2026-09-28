@@ -33,7 +33,7 @@ public final class WorldGuardHook {
             try {
                 allowedBlockBreakFlag = new SetFlag<>("allowed-block-break", new StringFlag("material"));
                 registry.register(allowedBlockBreakFlag);
-            } catch (FlagConflictException e) {
+            } catch (FlagConflictException | IllegalStateException e) {
                 Flag<?> existing = registry.get("allowed-block-break");
                 if (existing instanceof SetFlag) {
                     @SuppressWarnings("unchecked")

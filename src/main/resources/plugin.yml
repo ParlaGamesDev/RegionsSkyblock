@@ -2,7 +2,10 @@ name: RegionsSkyblock
 version: '1.0'
 main: me.goomer.regionsSkyblock.RegionsSkyblock
 api-version: '1.21'
-depend: [SkyBlockItems]
-softdepend: [AuraSkills, WorldGuard]
+softdepend: [SkyBlockItems, AuraSkills, WorldGuard]
 commands:
   regions:
+    permission: regions.admin
+permissions:
+  regions.admin:
+    default: op

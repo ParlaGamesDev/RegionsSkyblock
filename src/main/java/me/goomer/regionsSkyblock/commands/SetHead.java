@@ -17,8 +17,9 @@ public class SetHead extends SubCommand {
     @Override
     public void execute(CommandSender sender, String[] strings) {
         if(strings.length>1){
-            plugin.getConfig().set("head",strings[0]);
+            plugin.getConfig().set("head",strings[1]);
             plugin.saveConfig();
+            plugin.getStarManager().refreshAppearance();
             send(sender, "Done");
             return;
         }

@@ -13,6 +13,7 @@ import org.bukkit.block.data.Orientable;
 public class BlockLoc extends Loc{
     private String block;
     private Axis face;
+    private BlockData blockData;
 
     public BlockLoc(int x, int y, int z, String world, String block, Axis face) {
         super(x, y, z, world);
@@ -24,9 +25,15 @@ public class BlockLoc extends Loc{
         super(block.getX(), block.getY(), block.getZ(), block.getWorld().getName());
         this.block = block.getType().name();
         this.face = null;
+        this.blockData = block.getBlockData().clone();
         if(block.getBlockData() instanceof Orientable orientable){
             this.face = orientable.getAxis();
         }
+    }
+
+    /** Exact state at capture time (leaf persistence, log axis, stairs facing...), or null if unknown. */
+    public BlockData getBlockData() {
+        return blockData == null ? null : blockData.clone();
     }
 
     public String getBlock() {

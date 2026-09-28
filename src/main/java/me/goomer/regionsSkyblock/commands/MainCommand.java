@@ -20,6 +20,7 @@ public class MainCommand implements CommandExecutor {
         commands.add(new Remove(plugin));
         commands.add(new SetHead(plugin));
         commands.add(new ListRegions(plugin));
+        commands.add(new RegenAll(plugin));
     }
 
     @Override

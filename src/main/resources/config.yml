@@ -1,40 +1,7 @@
-head:
-farms:
-  key:
-    block:
-    minDelay:
-    maxDelay:
-    star:
-      x:
-      y:
-      z:
+# Player-head texture URL used by farm stars. Set in-game with /regions sethead <link>
+head: ""
 
-mines:
-  key:
-    loc1:
-      x:
-      y:
-      z:
-    loc2:
-      x:
-      y:
-      z:
-    minDelay:
-    maxDelay:
-    world:
-
-trees:
-  key:
-    loc1:
-      x:
-      y:
-      z:
-    loc2:
-      x:
-      y:
-      z:
-    minDelay:
-    maxDelay:
-    world:
-
-    
+# Added with /regions add farm|mine|tree
+farms: {}
+mines: {}
+trees: {}

@@ -17,14 +17,17 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.event.block.BlockPhysicsEvent;
 import org.bukkit.event.block.LeavesDecayEvent;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 
@@ -37,6 +40,7 @@ public class NewBlockBreak implements Listener {
     private final Map<BlockKey, PendingBreak> pendingBreaks = new ConcurrentHashMap<>();
     private final Map<BlockKey, BlockData> mineRestoreTargets = new ConcurrentHashMap<>();
     private final Map<BlockKey, ScheduledRestore> scheduledRestores = new ConcurrentHashMap<>();
+    private final Set<BlockKey> physicsShield = new HashSet<>();
 
     public NewBlockBreak(RegionsSkyblock plugin) {
         this.plugin = plugin;
@@ -56,6 +60,7 @@ public class NewBlockBreak implements Listener {
         }
         scheduledRestores.clear();
         mineRestoreTargets.clear();
+        physicsShield.clear();
         return pending.size();
     }
 
@@ -155,6 +160,28 @@ public class NewBlockBreak implements Listener {
         }
     }
 
+    /**
+     * A mined block is air for one tick before the cobblestone goes in. Blocking physics next to it
+     * keeps buttons, rails, pressure plates, torches etc. attached to it from popping off.
+     */
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onPhysics(BlockPhysicsEvent event) {
+        if (physicsShield.isEmpty()) {
+            return;
+        }
+        Block block = event.getBlock();
+        String world = block.getWorld().getName();
+        for (BlockKey key : physicsShield) {
+            int distance = Math.abs(key.x() - block.getX())
+                    + Math.abs(key.y() - block.getY())
+                    + Math.abs(key.z() - block.getZ());
+            if (distance <= 1 && key.world().equals(world)) {
+                event.setCancelled(true);
+                return;
+            }
+        }
+    }
+
     @EventHandler(ignoreCancelled = true)
     public void onLeavesDecay(LeavesDecayEvent event) {
         if (RegionsHelper.getTreeByLocation(event.getBlock().getLocation()) != null) {
@@ -241,9 +268,11 @@ public class NewBlockBreak implements Listener {
             mineRestoreTargets.put(key, restoreTarget.clone());
         }
 
+        physicsShield.add(key);
         new BukkitRunnable() {
             @Override
             public void run() {
+                physicsShield.remove(key);
                 location.getBlock().setType(immediateType);
             }
         }.runTask(plugin);

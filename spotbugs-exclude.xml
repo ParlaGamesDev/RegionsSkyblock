@@ -1,0 +1,12 @@
+<FindBugsFilter>
+  <Match><Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/></Match>
+  <Match><Bug pattern="CT_CONSTRUCTOR_THROW"/></Match>
+  <Match><Bug pattern="VA_FORMAT_STRING_USES_NEWLINE"/></Match>
+  <Match><Bug pattern="HE_INHERITS_EQUALS_USE_HASHCODE"/></Match>
+  <Match><Bug pattern="RV_RETURN_VALUE_IGNORED_NO_SIDE_EFFECT"/></Match>
+  <!-- Bukkit JavaPlugin singleton pattern -->
+  <Match>
+    <Bug pattern="MS_EXPOSE_REP,ST_WRITE_TO_STATIC_FROM_INSTANCE_METHOD"/>
+    <Class name="me.goomer.regionsSkyblock.RegionsSkyblock"/>
+  </Match>
+</FindBugsFilter>

@@ -10,7 +10,7 @@ import java.util.UUID;
 /**
  * Hook for AuraSkills integration.
  */
-public class AuraSkillsHook {
+public class AuraSkillsHook  {
 
     private final AuraSkillsApi api;
 
@@ -42,16 +42,19 @@ public class AuraSkillsHook {
     public void addXP(Player player, String skillName, double amount) {
         try {
             SkillsUser user = api.getUser(player.getUniqueId());
-            if (user == null)
+            if (user == null) {
                 return;
+            }
 
             dev.aurelium.auraskills.api.skill.Skill skill = api.getGlobalRegistry()
                     .getSkill(NamespacedId.fromDefault(skillName.toLowerCase()));
-            if (skill == null)
+            if (skill == null) {
                 return;
+            }
 
             user.addSkillXp(skill, amount);
         } catch (Exception ignored) {
+
         }
     }
 }

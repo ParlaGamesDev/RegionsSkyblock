@@ -1,6 +1,6 @@
 package me.goomer.regionsSkyblock;
 
-import me.goomer.regionsSkyblock.commands.*;
+import me.goomer.regionsSkyblock.commands.MainCommand;
 import me.goomer.regionsSkyblock.events.AllowedBlockBreakListener;
 import me.goomer.regionsSkyblock.events.NewBlockBreak;
 import me.goomer.regionsSkyblock.events.SkyblockItemsListener;
@@ -21,9 +21,13 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.logging.Level;
 
-public final class RegionsSkyblock extends JavaPlugin {
+public final class RegionsSkyblock extends JavaPlugin  {
 
-    public static RegionsSkyblock instance;
+    private static RegionsSkyblock instance;
+
+    public static RegionsSkyblock getInstance() {
+        return instance;
+    }
 
     HashMap<String, ArrayList<BlockLoc>> blocks;
     private StarManager starManager;
@@ -99,9 +103,9 @@ public final class RegionsSkyblock extends JavaPlugin {
         return restored;
     }
 
-    public void regenerateFirst(String key, boolean isStar){
+    public void regenerateFirst(String key, boolean isStar) {
         ArrayList<BlockLoc> rblocks = blocks.get(key);
-        if(rblocks != null && !rblocks.isEmpty()){
+        if (rblocks != null && !rblocks.isEmpty()) {
             BlockLoc blockLoc = rblocks.removeFirst();
             Block block = blockLoc.getBlockAt();
             if (block != null && blockLoc.getBlockData() != null) {
@@ -113,12 +117,12 @@ public final class RegionsSkyblock extends JavaPlugin {
                 return;
             }
             block.setType(material);
-            if(block.getBlockData() instanceof Ageable ageable){
+            if (block.getBlockData() instanceof Ageable ageable) {
                 ageable.setAge(ageable.getMaximumAge());
                 block.setBlockData(ageable);
             }
-            if(block.getBlockData() instanceof Orientable orientable){
-                if(blockLoc.getFace()!=null){
+            if (block.getBlockData() instanceof Orientable orientable) {
+                if (blockLoc.getFace() != null) {
                     orientable.setAxis(blockLoc.getFace());
                     block.setBlockData(orientable);
                 }
@@ -126,31 +130,32 @@ public final class RegionsSkyblock extends JavaPlugin {
         }
     }
 
-    public void regenerateByKey(String key){
-        if(exists(key)){
-            while(exists(key)){
+    public void regenerateByKey(String key) {
+        if (exists(key)) {
+            while (exists(key)) {
                 regenerateFirst(key, false);
             }
         }
     }
 
-    public void regenerateAll(){
-        for(String key : blocks.keySet()){
+    public void regenerateAll() {
+        for (String key : blocks.keySet()) {
             regenerateByKey(key);
         }
     }
 
-    public boolean exists(String key){
-        if(blocks.containsKey(key))
+    public boolean exists(String key) {
+        if (blocks.containsKey(key)) {
             return !blocks.get(key).isEmpty();
+        }
         return false;
     }
 
-    public void addBlock(String key, Block block){
+    public void addBlock(String key, Block block) {
         addBlockLoc(key, new BlockLoc(block));
     }
 
-    public void addBlockLoc(String key, BlockLoc blockLoc){
+    public void addBlockLoc(String key, BlockLoc blockLoc) {
         ArrayList<BlockLoc> list = blocks.computeIfAbsent(key, k -> new ArrayList<>());
         for (BlockLoc existing : list) {
             if (sameGridCell(existing, blockLoc)) {

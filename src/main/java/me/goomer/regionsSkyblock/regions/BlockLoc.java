@@ -1,16 +1,12 @@
 package me.goomer.regionsSkyblock.regions;
 
 import org.bukkit.Axis;
-import org.bukkit.Bukkit;
 import org.bukkit.Material;
-import org.bukkit.World;
 import org.bukkit.block.Block;
-import org.bukkit.block.BlockFace;
 import org.bukkit.block.data.BlockData;
-import org.bukkit.block.data.Directional;
 import org.bukkit.block.data.Orientable;
 
-public class BlockLoc extends Loc{
+public class BlockLoc extends Loc {
     private String block;
     private Axis face;
     private BlockData blockData;
@@ -21,12 +17,12 @@ public class BlockLoc extends Loc{
         this.face = face;
     }
 
-    public BlockLoc(Block block){
+    public BlockLoc(Block block) {
         super(block.getX(), block.getY(), block.getZ(), block.getWorld().getName());
         this.block = block.getType().name();
         this.face = null;
         this.blockData = block.getBlockData().clone();
-        if(block.getBlockData() instanceof Orientable orientable){
+        if (block.getBlockData() instanceof Orientable orientable) {
             this.face = orientable.getAxis();
         }
     }
@@ -44,10 +40,14 @@ public class BlockLoc extends Loc{
         this.block = block;
     }
 
-    public void setBlockAt(){
+    public void setBlockAt() {
         Block block = getBlockAt();
-        if(block != null)
-            block.setType(Material.getMaterial(this.block));
+        if (block != null) {
+            Material material = Material.getMaterial(this.block);
+            if (material != null) {
+                block.setType(material);
+            }
+        }
     }
 
     public Axis getFace() {

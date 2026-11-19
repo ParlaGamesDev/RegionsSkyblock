@@ -17,7 +17,7 @@ import org.bukkit.entity.Player;
 
 import java.util.Set;
 
-public final class WorldGuardHook {
+public final class WorldGuardHook  {
 
     private static boolean enabled;
     private static SetFlag<String> allowedBlockBreakFlag;
@@ -31,10 +31,10 @@ public final class WorldGuardHook {
             Class.forName("com.sk89q.worldguard.WorldGuard");
             FlagRegistry registry = WorldGuard.getInstance().getFlagRegistry();
             try {
-                allowedBlockBreakFlag = new SetFlag<>("allowed-block-break", new StringFlag("material"));
+                allowedBlockBreakFlag = new SetFlag<>("allowed - block - break", new StringFlag("material"));
                 registry.register(allowedBlockBreakFlag);
             } catch (FlagConflictException | IllegalStateException e) {
-                Flag<?> existing = registry.get("allowed-block-break");
+                Flag<?> existing = registry.get("allowed - block - break");
                 if (existing instanceof SetFlag) {
                     @SuppressWarnings("unchecked")
                     SetFlag<String> setFlag = (SetFlag<String>) existing;
@@ -61,7 +61,7 @@ public final class WorldGuardHook {
         }
         try {
             FlagRegistry registry = WorldGuard.getInstance().getFlagRegistry();
-            Flag<?> flag = registry.get("allowed-block-break");
+            Flag<?> flag = registry.get("allowed - block - break");
             if (flag instanceof SetFlag) {
                 @SuppressWarnings("unchecked")
                 SetFlag<String> setFlag = (SetFlag<String>) flag;
@@ -90,7 +90,7 @@ public final class WorldGuardHook {
     }
 
     /**
-     * Materials on {@code allowed-block-break} at this location, or null if flag is not set.
+     * Materials on {@code allowed - block - break} at this location, or null if flag is not set.
      */
     public static Set<String> getAllowedMaterials(Player player, Location location) {
         if (!enabled || allowedBlockBreakFlag == null || location.getWorld() == null) {

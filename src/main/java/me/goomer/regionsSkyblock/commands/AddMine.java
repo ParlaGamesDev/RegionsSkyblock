@@ -1,17 +1,13 @@
 package me.goomer.regionsSkyblock.commands;
 
 import me.goomer.regionsSkyblock.RegionsSkyblock;
-import me.goomer.regionsSkyblock.regions.RegionsHelper;
-import org.bukkit.command.Command;
-import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
-import org.bukkit.entity.Player;
 
-public class AddMine extends SubCommand{
+public class AddMine extends SubCommand {
 
     private RegionsSkyblock plugin;
 
-    public AddMine(RegionsSkyblock plugin){
+    public AddMine(RegionsSkyblock plugin) {
         this.plugin = plugin;
     }
 
@@ -19,8 +15,8 @@ public class AddMine extends SubCommand{
 
     @Override
     public void execute(CommandSender sender, String[] strings) {
-        if(strings.length>=12){
-            try{
+        if (strings.length >= 12) {
+            try {
 
                 String key = strings[2];
 
@@ -37,21 +33,21 @@ public class AddMine extends SubCommand{
 
                 String world = strings[11];
 
-                plugin.getConfig().set("mines."+ key + ".world", world);
-                plugin.getConfig().set("mines."+ key + ".minDelay", minDelay);
-                plugin.getConfig().set("mines."+ key + ".maxDelay", maxDelay);
-                plugin.getConfig().set("mines."+ key + ".loc1.x", x1);
-                plugin.getConfig().set("mines."+ key + ".loc1.y", y1);
-                plugin.getConfig().set("mines."+ key + ".loc1.z", z1);
-                plugin.getConfig().set("mines."+ key + ".loc2.x", x2);
-                plugin.getConfig().set("mines."+ key + ".loc2.y", y2);
-                plugin.getConfig().set("mines."+ key + ".loc2.z", z2);
+                plugin.getConfig().set("mines." + key + ".world", world);
+                plugin.getConfig().set("mines." + key + ".minDelay", minDelay);
+                plugin.getConfig().set("mines." + key + ".maxDelay", maxDelay);
+                plugin.getConfig().set("mines." + key + ".loc1.x", x1);
+                plugin.getConfig().set("mines." + key + ".loc1.y", y1);
+                plugin.getConfig().set("mines." + key + ".loc1.z", z1);
+                plugin.getConfig().set("mines." + key + ".loc2.x", x2);
+                plugin.getConfig().set("mines." + key + ".loc2.y", y2);
+                plugin.getConfig().set("mines." + key + ".loc2.z", z2);
 
                 plugin.saveConfig();
 
                 send(sender, "Added " + key);
 
-            } catch (NumberFormatException e){
+            } catch (NumberFormatException e) {
                 send(sender, "You didn't enter the arguments correctly");
             }
 

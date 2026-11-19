@@ -4,12 +4,14 @@ import org.bukkit.Location;
 
 import java.util.concurrent.ThreadLocalRandom;
 
-public class Mine {
-    private Loc loc1, loc2;
+public class Mine  {
+    private Loc loc1;
+    private Loc loc2;
     private String key;
-    private int minDelay, maxDelay;
+    private int minDelay;
+    private int maxDelay;
 
-    public Mine(Loc loc1, Loc loc2, int minDelay, int maxDelay, String key){
+    public Mine(Loc loc1, Loc loc2, int minDelay, int maxDelay, String key) {
         this.loc1 = loc1;
         this.loc2 = loc2;
         this.minDelay = minDelay;
@@ -67,11 +69,12 @@ public class Mine {
         this.key = key;
     }
 
-    public boolean contains(Location loc){
-        if (loc.getWorld() == null || loc1.getWorld() == null) {
+    public boolean contains(Location loc) {
+        org.bukkit.World world = loc.getWorld();
+        if (world == null || loc1.getWorld() == null) {
             return false;
         }
-        if (!loc1.getWorld().equalsIgnoreCase(loc.getWorld().getName())) {
+        if (!loc1.getWorld().equalsIgnoreCase(world.getName())) {
             return false;
         }
 

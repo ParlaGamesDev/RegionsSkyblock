@@ -11,10 +11,10 @@ import org.bukkit.event.block.BlockBreakEvent;
 import java.util.Set;
 
 /**
- * Enforces WorldGuard {@code allowed-block-break} — same job as QSkyblockCore.
- * WorldGuard denies build by default; this listener re-allows listed materials.
+ * Enforces WorldGuard {@code allowed - block - break} — same job as QSkyblockCore.
+ * WorldGuard denies build by default; this listener re - allows listed materials.
  */
-public class AllowedBlockBreakListener implements Listener {
+public class AllowedBlockBreakListener implements Listener  {
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
     public void onBlockBreak(BlockBreakEvent event) {

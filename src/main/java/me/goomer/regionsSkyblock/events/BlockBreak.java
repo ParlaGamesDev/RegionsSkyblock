@@ -12,44 +12,41 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.scheduler.BukkitRunnable;
-import org.bukkit.scheduler.BukkitTask;
-
-public class BlockBreak implements Listener {
+public class BlockBreak implements Listener  {
 
     private RegionsSkyblock plugin;
     private RegionsHelper helper;
 
-    public BlockBreak(RegionsSkyblock plugin){
+    public BlockBreak(RegionsSkyblock plugin) {
         this.plugin = plugin;
         this.helper = new RegionsHelper(plugin);
     }
 
     @EventHandler(priority = EventPriority.LOW)
-    public void onBreak(BlockBreakEvent event){
+    public void onBreak(BlockBreakEvent event) {
         Block block = event.getBlock();
         Farm farm = helper.getFarmByBlock(block);
-        if(farm != null){
+        if (farm != null) {
             boolean loop = plugin.exists(farm.getKey());
             plugin.addBlock(farm.getKey(), block);
-            if(!loop){
+            if (!loop) {
                 farmLoop(farm);
             }
             return;
         }
         Mine mine = helper.getMineByLocation(block.getLocation());
-        if(mine != null){
-            if(block.getType()== Material.COBBLESTONE){
+        if (mine != null) {
+            if (block.getType() == Material.COBBLESTONE) {
                 new BukkitRunnable() {
                     @Override
                     public void run() {
                         block.setType(Material.BEDROCK);
                     }
                 }.runTask(plugin);
-            }
-            else{
+            } else {
                 boolean loop = plugin.exists(mine.getKey());
                 plugin.addBlock(mine.getKey(), block);
-                if(!loop){
+                if (!loop) {
                     mineLoop(mine);
                 }
                 new BukkitRunnable() {
@@ -63,10 +60,10 @@ public class BlockBreak implements Listener {
             return;
         }
         Tree tree = helper.getTreeByLocation(block.getLocation());
-        if(tree!=null){
+        if (tree != null) {
             boolean loop = plugin.exists(tree.getKey());
             plugin.addBlock(tree.getKey(), block);
-            if(!loop){
+            if (!loop) {
                 respawnTree(tree);
             }
 
@@ -77,13 +74,13 @@ public class BlockBreak implements Listener {
         }
     }
 
-    public void mineLoop(Mine mine){
-        BukkitTask task = new BukkitRunnable() {
+    public void mineLoop(Mine mine) {
+        new BukkitRunnable() {
             @Override
             public void run() {
-                if(plugin.exists(mine.getKey())){
+                if (plugin.exists(mine.getKey())) {
                     plugin.regenerateFirst(mine.getKey(), false);
-                    if(plugin.exists(mine.getKey())){
+                    if (plugin.exists(mine.getKey())) {
                         mineLoop(mine);
                     }
                 }
@@ -91,14 +88,14 @@ public class BlockBreak implements Listener {
         }.runTaskLater(plugin, mine.getDelay());
     }
 
-    public void farmLoop(Farm farm){
+    public void farmLoop(Farm farm) {
         new BukkitRunnable() {
             @Override
             public void run() {
-                if(plugin.exists(farm.getKey())){
+                if (plugin.exists(farm.getKey())) {
                     // TODO star effect
-                    plugin.regenerateFirst(farm.getKey(), farm.getStar()!=null);
-                    if(plugin.exists(farm.getKey())){
+                    plugin.regenerateFirst(farm.getKey(), farm.getStar() != null);
+                    if (plugin.exists(farm.getKey())) {
                         farmLoop(farm);
                     }
                 }
@@ -106,7 +103,7 @@ public class BlockBreak implements Listener {
         }.runTaskLater(plugin, farm.getDelay());
     }
 
-    public void respawnTree(Tree tree){
+    public void respawnTree(Tree tree) {
         new BukkitRunnable() {
             @Override
             public void run() {

@@ -9,72 +9,66 @@ import org.bukkit.command.CommandSender;
 
 import java.util.ArrayList;
 
-public class ListRegions extends SubCommand{
-    private RegionsSkyblock plugin;
+public class ListRegions extends SubCommand {
     private RegionsHelper regionsHelper;
 
-    public ListRegions(RegionsSkyblock plugin){
-        this.plugin = plugin;
+    public ListRegions(RegionsSkyblock plugin) {
+        java.util.Objects.requireNonNull(plugin);
         this.regionsHelper = new RegionsHelper(plugin);
     }
 
     @Override
     public void execute(CommandSender sender, String[] strings) {
-        if(strings.length>=2){
-            if(strings[1].equals("tree") || strings[1].equals("trees")){
+        if (strings.length >= 2) {
+            if (strings[1].equals("tree") || strings[1].equals("trees")) {
                 send(sender, getTreeList());
-            }
-            else if (strings[1].equals("mine") || strings[1].equals("mines")) {
+            } else if (strings[1].equals("mine") || strings[1].equals("mines")) {
                 send(sender, getMineList());
-            }
-            else if (strings[1].equals("farm") || strings[1].equals("farms")) {
+            } else if (strings[1].equals("farm") || strings[1].equals("farms")) {
                 send(sender, getFarmList());
-            }
-            else{
+            } else {
                 send(sender, "No \"" + strings[1] + "\" region");
             }
-        }
-        else{
+        } else {
             send(sender, getFarmList() + getMineList() + getTreeList());
         }
     }
 
-    public String getFarmList(){
+    public String getFarmList() {
         ArrayList<Farm> farms = regionsHelper.getAllFarms();
-        if(farms.isEmpty()){
+        if (farms.isEmpty()) {
             return "farms:\n - no farms";
         }
-        String str = "farms:\n";
-        for(Farm farm : farms){
-            str += " - " + farm.getKey() + "\n";
+        StringBuilder str = new StringBuilder("farms:\n");
+        for (Farm farm : farms) {
+            str.append(" - ").append(farm.getKey()).append("\n");
         }
-        return str;
+        return str.toString();
     }
 
-    public String getMineList(){
+    public String getMineList() {
         ArrayList<Mine> mines = regionsHelper.getAllMines();
-        if(mines.isEmpty()){
+        if (mines.isEmpty()) {
             return "mines:\n - no mines";
         }
-        String str = "mines:\n";
-        for(Mine mine : mines){
-            str += " - " + mine.getKey() + "\n";
+        StringBuilder str = new StringBuilder("mines:\n");
+        for (Mine mine : mines) {
+            str.append(" - ").append(mine.getKey()).append("\n");
         }
-        return str;
+        return str.toString();
     }
 
-    public String getTreeList(){
+    public String getTreeList() {
         ArrayList<Tree> trees = regionsHelper.getAllTrees();
-        if(trees.isEmpty()){
+        if (trees.isEmpty()) {
             return "trees:\n - no trees";
         }
-        String str = "trees:\n";
-        for(Tree tree : trees){
-            str += " - " + tree.getKey() + "\n";
+        StringBuilder str = new StringBuilder("trees:\n");
+        for (Tree tree : trees) {
+            str.append(" - ").append(tree.getKey()).append("\n");
         }
-        return str;
+        return str.toString();
     }
-
 
     @Override
     public String getName() {
@@ -83,7 +77,7 @@ public class ListRegions extends SubCommand{
 
     @Override
     public String getSyntax() {
-        return "/regions list [region-type]";
+        return "/regions list [region - type]";
     }
 
     @Override

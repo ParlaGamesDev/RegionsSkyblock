@@ -36,7 +36,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.logging.Level;
 
-public final class StarManager implements Listener {
+public final class StarManager implements Listener  {
 
     private static final float SCALE = 0.6f;
 
@@ -49,7 +49,7 @@ public final class StarManager implements Listener {
 
     public StarManager(RegionsSkyblock plugin) {
         this.plugin = plugin;
-        this.farmStarKey = new NamespacedKey(plugin, "farm-star");
+        this.farmStarKey = new NamespacedKey(plugin, "farm - star");
     }
 
     public void start() {
@@ -118,6 +118,9 @@ public final class StarManager implements Listener {
 
     private void spawnAt(String farmKey, Location base) {
         World world = base.getWorld();
+        if (world == null) {
+            return;
+        }
         ItemDisplay existing = findExisting(world, base, farmKey);
         if (existing != null) {
             existing.setPersistent(false);
@@ -282,6 +285,9 @@ public final class StarManager implements Listener {
         }
         try {
             SkullMeta meta = (SkullMeta) head.getItemMeta();
+            if (meta == null) {
+                return head;
+            }
             PlayerProfile profile = Bukkit.createPlayerProfile(UUID.randomUUID());
             profile.getTextures().setSkin(URI.create(texture).toURL());
             meta.setOwnerProfile(profile);

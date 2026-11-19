@@ -19,7 +19,7 @@ import java.util.Map;
  * Listens for SkyBlockItems mass tree breaks ({@code TREE_CAPITATOR} extra logs,
  * {@code THUNDER_STRIKE}) so regrowth queues match normal {@link NewBlockBreak} behavior.
  */
-public class SkyblockItemsListener implements Listener {
+public class SkyblockItemsListener implements Listener  {
 
     private static final String TREE_CAPITATOR = "TREE_CAPITATOR";
     private static final String THUNDER_STRIKE = "THUNDER_STRIKE";
@@ -53,7 +53,7 @@ public class SkyblockItemsListener implements Listener {
             return;
         }
 
-        RegionsSkyblock plugin = RegionsSkyblock.instance;
+        RegionsSkyblock plugin = RegionsSkyblock.getInstance();
         BlockLoc snapshot = new BlockLoc(block);
         boolean loop = plugin.exists(tree.getKey());
         plugin.addBlockLoc(tree.getKey(), snapshot);

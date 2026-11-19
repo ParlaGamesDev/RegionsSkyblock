@@ -1,20 +1,15 @@
 package me.goomer.regionsSkyblock.commands;
 
 import me.goomer.regionsSkyblock.RegionsSkyblock;
-import org.bukkit.command.Command;
-import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
-import org.bukkit.entity.Player;
 
 import java.util.ArrayList;
 
-public class Remove extends SubCommand {
-
-    private RegionsSkyblock plugin;
+public class Remove extends SubCommand  {
     private ArrayList<SubCommand> commands;
 
-    public Remove(RegionsSkyblock plugin){
-        this.plugin = plugin;
+    public Remove(RegionsSkyblock plugin) {
+        java.util.Objects.requireNonNull(plugin);
         commands = new ArrayList<>();
         commands.add(new RemoveFarm(plugin));
         commands.add(new RemoveMine(plugin));
@@ -23,15 +18,14 @@ public class Remove extends SubCommand {
 
     @Override
     public void execute(CommandSender sender, String[] strings) {
-        if(strings.length>1){
-            for(SubCommand cmd : commands){
-                if(cmd.getName().equals(strings[1])){
+        if (strings.length > 1) {
+            for (SubCommand cmd : commands) {
+                if (cmd.getName().equals(strings[1])) {
                     cmd.execute(sender, strings);
                 }
             }
-        }
-        else{
-            for(SubCommand cmd : commands){
+        } else {
+            for (SubCommand cmd : commands) {
                 send(sender, cmd.getSyntax() + " - " + cmd.getDesc());
             }
         }
@@ -44,7 +38,7 @@ public class Remove extends SubCommand {
 
     @Override
     public String getSyntax() {
-        return "/regions remove <region-type>";
+        return "/regions remove <region - type>";
     }
 
     @Override

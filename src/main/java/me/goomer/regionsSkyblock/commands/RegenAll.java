@@ -3,7 +3,7 @@ package me.goomer.regionsSkyblock.commands;
 import me.goomer.regionsSkyblock.RegionsSkyblock;
 import org.bukkit.command.CommandSender;
 
-public class RegenAll extends SubCommand {
+public class RegenAll extends SubCommand  {
 
     private final RegionsSkyblock plugin;
 

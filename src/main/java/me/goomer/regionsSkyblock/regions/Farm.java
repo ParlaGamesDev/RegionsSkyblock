@@ -8,12 +8,14 @@ import org.bukkit.block.Block;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.util.Vector;
 
-public class Farm {
-    private String key, block;
-    private int minDelay, maxDelay;
+public class Farm  {
+    private String key;
+    private String block;
+    private int minDelay;
+    private int maxDelay;
     private Loc star;
 
-    public Farm(String key, String block, int minDelay, int maxDelay){
+    public Farm(String key, String block, int minDelay, int maxDelay) {
         this.block = block;
         this.key = key;
         this.minDelay = minDelay;
@@ -21,7 +23,7 @@ public class Farm {
         this.star = null;
     }
 
-    public Farm(String key, String block, int minDelay, int maxDelay, Loc star){
+    public Farm(String key, String block, int minDelay, int maxDelay, Loc star) {
         this.block = block;
         this.key = key;
         this.minDelay = minDelay;
@@ -73,31 +75,37 @@ public class Farm {
         this.key = key;
     }
 
-    public boolean contains(Block block){
+    public boolean contains(Block block) {
         return block.getRelative(0, -2, 0).getType().name().equals(this.block);
     }
 
-    public void drawParticle(Location crop, RegionsSkyblock plugin){
-        if(star == null)
+    public void drawParticle(Location crop, RegionsSkyblock plugin) {
+        if (star == null) {
             return;
+        }
         Location end = crop.clone().add(0.5, 0.5, 0.5);
         int pointsPerLine = 20;
-        int DELAY = 20;
+        int delay = 20;
         Particle.Spell spell = new Particle.Spell(Color.fromRGB(255, 255, 200), 1.0f);
 
         new BukkitRunnable() {
             int ticks = 0;
             @Override
             public void run() {
+                if (plugin.getStarManager() == null) {
+                    cancel();
+                    return;
+                }
                 Location from = plugin.getStarManager().beamTarget(key);
-                if (ticks > DELAY || from == null || end.getWorld() == null || !end.getWorld().equals(from.getWorld())) {
+                org.bukkit.World world = end.getWorld();
+                if (ticks > delay || from == null || world == null || !world.equals(from.getWorld())) {
                     cancel();
                     return;
                 }
                 Vector step = end.toVector().subtract(from.toVector()).multiply(1.0 / pointsPerLine);
                 for (int i = 0; i <= pointsPerLine; i++) {
                     Location point = from.clone().add(step.clone().multiply(i));
-                    end.getWorld().spawnParticle(Particle.INSTANT_EFFECT, point, 1, 0, 0, 0, spell);
+                    world.spawnParticle(Particle.INSTANT_EFFECT, point, 1, 0, 0, 0, spell);
                 }
                 ticks++;
             }

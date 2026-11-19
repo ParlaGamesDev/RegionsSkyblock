@@ -1,0 +1,311 @@
+name: Build
+
+# Universal Maven Minecraft plugin pipeline: copy this file to
+# .github/workflows/build.yml in any Maven plugin repo. No edits needed.
+#  - Java version is auto-detected from pom.xml (falls back to 21)
+#  - Checkstyle + SpotBugs lint (errors fail the build; drop a checkstyle.xml in the repo
+#    root to use your own rules instead of the built-in baseline)
+#  - Trivy scans dependencies/config for MEDIUM+ vulnerabilities and secrets
+#  - Every push/PR builds the plugin and uploads the jar as a workflow artifact
+#  - Pushes to main (incl. merged PRs) auto-bump the patch version in pom.xml and
+#    commit it back with [skip ci] (needs main to allow pushes from github-actions)
+#  - Pushing a tag like v1.2.3 also publishes a GitHub Release with the jar
+
+on:
+  push:
+    branches: ["**"]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read # least privilege; only the release job gets write
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }} # never cancel a main run mid-bump
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Detect Java version from pom.xml
+        id: java
+        run: |
+          v=""
+          for tag in maven.compiler.release release java.version maven.compiler.source maven.compiler.target; do
+            v=$(grep -oPm1 "<${tag}>\K[0-9.]+(?=</${tag}>)" pom.xml || true)
+            [ -n "$v" ] && break
+          done
+          v=${v#1.}
+          echo "version=${v:-21}" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+        with:
+          distribution: temurin
+          java-version: ${{ steps.java.outputs.version }}
+          cache: maven
+
+      - name: Prepare Checkstyle config
+        run: |
+          if [ -f checkstyle.xml ]; then
+            cp checkstyle.xml "$RUNNER_TEMP/checkstyle.xml"
+          else
+            cat > "$RUNNER_TEMP/checkstyle.xml" <<'XML'
+          <?xml version="1.0"?>
+          <!DOCTYPE module PUBLIC "-//Checkstyle//DTD Checkstyle Configuration 1.3//EN"
+            "https://checkstyle.org/dtds/configuration_1_3.dtd">
+          <module name="Checker">
+            <property name="severity" value="error"/>
+            <property name="fileExtensions" value="java"/>
+            <module name="FileTabCharacter"/>
+            <module name="NewlineAtEndOfFile"/>
+            <module name="RegexpSingleline">
+              <property name="format" value="\s+$"/>
+              <property name="message" value="Trailing whitespace"/>
+            </module>
+            <module name="TreeWalker">
+              <module name="UnusedImports"/>
+              <module name="RedundantImport"/>
+              <module name="AvoidStarImport"/>
+              <module name="IllegalImport"/>
+              <module name="ModifierOrder"/>
+              <module name="RedundantModifier"/>
+              <module name="EmptyStatement"/>
+              <module name="EmptyBlock">
+                <property name="option" value="text"/>
+              </module>
+              <module name="NeedBraces"/>
+              <module name="EqualsHashCode"/>
+              <module name="SimplifyBooleanExpression"/>
+              <module name="SimplifyBooleanReturn"/>
+              <module name="ArrayTypeStyle"/>
+              <module name="UpperEll"/>
+              <module name="MissingOverride"/>
+              <module name="FinalClass"/>
+              <module name="HideUtilityClassConstructor"/>
+              <module name="MultipleVariableDeclarations"/>
+              <module name="OneStatementPerLine"/>
+              <module name="OneTopLevelClass"/>
+              <module name="StringLiteralEquality"/>
+              <module name="CovariantEquals"/>
+              <module name="NoFinalizer"/>
+              <module name="DefaultComesLast"/>
+              <module name="FallThrough"/>
+              <module name="ModifiedControlVariable"/>
+              <module name="EmptyCatchBlock">
+                <property name="exceptionVariableName" value="expected|ignored"/>
+              </module>
+              <module name="PackageName"/>
+              <module name="TypeName"/>
+              <module name="MethodName"/>
+              <module name="MemberName"/>
+              <module name="LocalVariableName"/>
+              <module name="ParameterName"/>
+              <module name="ConstantName"/>
+              <module name="LeftCurly"/>
+              <module name="RightCurly"/>
+              <module name="WhitespaceAround">
+                <property name="allowEmptyConstructors" value="true"/>
+                <property name="allowEmptyMethods" value="true"/>
+                <property name="allowEmptyTypes" value="true"/>
+                <property name="allowEmptyLambdas" value="true"/>
+                <property name="allowEmptyLoops" value="true"/>
+                <property name="tokens" value="ASSIGN,BAND,BOR,BXOR,COLON,DIV,EQUAL,GE,GT,LAND,LE,LOR,LT,MINUS,MOD,NOT_EQUAL,PLUS,QUESTION,SL,SR,STAR,LITERAL_ELSE,LITERAL_FOR,LITERAL_IF,LITERAL_WHILE,LITERAL_TRY,LITERAL_CATCH,LITERAL_FINALLY,LCURLY,RCURLY"/>
+              </module>
+              <module name="GenericWhitespace"/>
+              <module name="NoWhitespaceBefore"/>
+              <module name="MethodParamPad"/>
+              <module name="ParenPad"/>
+            </module>
+          </module>
+          XML
+          fi
+
+      - name: Checkstyle
+        run: >
+          mvn -B -ntp
+          org.apache.maven.plugins:maven-checkstyle-plugin:3.6.0:check
+          -Dcheckstyle.config.location="$RUNNER_TEMP/checkstyle.xml"
+          -Dcheckstyle.includeTestSourceDirectory=true
+          -Dcheckstyle.consoleOutput=true
+          -Dcheckstyle.violationSeverity=error
+
+      - name: Prepare SpotBugs filter
+        run: |
+          if [ -f spotbugs-exclude.xml ]; then
+            cp spotbugs-exclude.xml "$RUNNER_TEMP/spotbugs-exclude.xml"
+          else
+            cat > "$RUNNER_TEMP/spotbugs-exclude.xml" <<'XML'
+          <FindBugsFilter>
+            <!-- Noise for plugin/service-style code; real bug and security detectors stay on -->
+            <Match><Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/></Match>
+            <Match><Bug pattern="CT_CONSTRUCTOR_THROW"/></Match>
+            <Match><Bug pattern="VA_FORMAT_STRING_USES_NEWLINE"/></Match>
+            <Match><Bug pattern="HE_INHERITS_EQUALS_USE_HASHCODE"/></Match>
+            <!-- Bukkit ItemStack#setItemMeta returns a boolean nobody needs -->
+            <Match><Bug pattern="RV_RETURN_VALUE_IGNORED_NO_SIDE_EFFECT"/></Match>
+          </FindBugsFilter>
+          XML
+          fi
+
+      - name: SpotBugs (static bug analysis)
+        run: >
+          mvn -B -ntp -DskipTests compile
+          com.github.spotbugs:spotbugs-maven-plugin:4.10.5.0:check
+          -Dspotbugs.effort=Max
+          -Dspotbugs.threshold=Medium
+          -Dspotbugs.failOnError=true
+          -Dspotbugs.excludeFilterFile="$RUNNER_TEMP/spotbugs-exclude.xml"
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Trivy filesystem scan
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,secret,misconfig
+          severity: MEDIUM,HIGH,CRITICAL
+          skip-dirs: target
+          ignore-unfixed: true
+          exit-code: "1"
+          format: table
+
+  build:
+    needs: [lint, security]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Detect Java version from pom.xml
+        id: java
+        run: |
+          v=""
+          for tag in maven.compiler.release release java.version maven.compiler.source maven.compiler.target; do
+            v=$(grep -oPm1 "<${tag}>\K[0-9.]+(?=</${tag}>)" pom.xml || true)
+            [ -n "$v" ] && break
+          done
+          v=${v#1.}   # 1.8 -> 8
+          echo "version=${v:-21}" >> "$GITHUB_OUTPUT"
+          echo "Using Java ${v:-21}"
+
+      - name: Set up JDK
+        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+        with:
+          distribution: temurin
+          java-version: ${{ steps.java.outputs.version }}
+          cache: maven
+
+      - name: Build
+        run: mvn -B -ntp clean package
+
+      - name: Collect plugin jar
+        id: jar
+        run: |
+          # Pick the final plugin jar (skip sources/javadoc/original-* helper jars)
+          jar=$(ls target/*.jar | grep -vE '(-sources|-javadoc|-tests|^target/original-)' | head -n1)
+          [ -n "$jar" ] || { echo "No jar found in target/"; exit 1; }
+          echo "path=$jar" >> "$GITHUB_OUTPUT"
+          echo "Plugin jar: $jar"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ${{ github.event.repository.name }}-${{ github.sha }}
+          path: ${{ steps.jar.outputs.path }}
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download plugin jar
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: ${{ github.event.repository.name }}-${{ github.sha }}
+          path: dist
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
+        with:
+          files: dist/*.jar
+          generate_release_notes: true
+
+  bump-version:
+    # Runs for pushes to the default branch only (a merged PR is such a push); never for PRs or tags
+    if: github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout latest default branch
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+
+      - name: Detect Java version from pom.xml
+        id: java
+        run: |
+          v=""
+          for tag in maven.compiler.release release java.version maven.compiler.source maven.compiler.target; do
+            v=$(grep -oPm1 "<${tag}>\K[0-9.]+(?=</${tag}>)" pom.xml || true)
+            [ -n "$v" ] && break
+          done
+          v=${v#1.}
+          echo "version=${v:-21}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up JDK
+        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+        with:
+          distribution: temurin
+          java-version: ${{ steps.java.outputs.version }}
+          cache: maven
+
+      - name: Bump patch version
+        id: bump
+        run: |
+          # Read the version straight from pom.xml (own <version>, else the parent's)
+          current=$(python3 - <<'PY'
+          import xml.etree.ElementTree as ET
+          ns = {"m": "http://maven.apache.org/POM/4.0.0"}
+          root = ET.parse("pom.xml").getroot()
+          v = root.find("m:version", ns)
+          if v is None:
+              v = root.find("m:parent/m:version", ns)
+          print(v.text.strip() if v is not None else "")
+          PY
+          )
+          if ! [[ "$current" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)(-.+)?$ ]]; then
+            echo "Version '$current' is not MAJOR.MINOR.PATCH[-qualifier]; skipping bump"
+            exit 0
+          fi
+          next="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}.$((BASH_REMATCH[3] + 1))${BASH_REMATCH[4]}"
+          mvn -B -ntp versions:set -DnewVersion="$next" -DgenerateBackupPoms=false
+          echo "bumped=true" >> "$GITHUB_OUTPUT"
+          echo "next=$next" >> "$GITHUB_OUTPUT"
+          echo "Version: $current -> $next"
+
+      - name: Commit and push
+        if: steps.bump.outputs.bumped == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "Bump version to ${{ steps.bump.outputs.next }} [skip ci]"
+          git push

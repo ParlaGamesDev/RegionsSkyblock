@@ -1,22 +1,19 @@
 package me.goomer.regionsSkyblock.commands;
 
 import me.goomer.regionsSkyblock.RegionsSkyblock;
-import org.bukkit.command.Command;
-import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
-import org.bukkit.entity.Player;
 
-public class SetHead extends SubCommand {
+public class SetHead extends SubCommand  {
 
     private RegionsSkyblock plugin;
 
-    public SetHead(RegionsSkyblock plugin){
+    public SetHead(RegionsSkyblock plugin) {
         this.plugin = plugin;
     }
 
     @Override
     public void execute(CommandSender sender, String[] strings) {
-        if(strings.length>1){
+        if (strings.length > 1) {
             plugin.getConfig().set("head",strings[1]);
             plugin.saveConfig();
             plugin.getStarManager().refreshAppearance();

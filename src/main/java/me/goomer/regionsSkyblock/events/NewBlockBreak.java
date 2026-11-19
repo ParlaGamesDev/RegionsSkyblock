@@ -2,7 +2,11 @@ package me.goomer.regionsSkyblock.events;
 
 import me.goomer.regionsSkyblock.RegionsSkyblock;
 import me.goomer.regionsSkyblock.hooks.WorldGuardHook;
-import me.goomer.regionsSkyblock.regions.*;
+import me.goomer.regionsSkyblock.regions.BlockLoc;
+import me.goomer.regionsSkyblock.regions.Farm;
+import me.goomer.regionsSkyblock.regions.Mine;
+import me.goomer.regionsSkyblock.regions.RegionsHelper;
+import me.goomer.regionsSkyblock.regions.Tree;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -31,7 +35,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 
-public class NewBlockBreak implements Listener {
+public class NewBlockBreak implements Listener  {
 
     private static final long MIN_FARM_REGEN_TICKS = 200L;
 
@@ -314,14 +318,18 @@ public class NewBlockBreak implements Listener {
         return name.contains("_LOG") || name.contains("_STEM") || name.contains("_WOOD");
     }
 
-    private record BlockKey(String world, int x, int y, int z) {
+    private record BlockKey(String world, int x, int y, int z)  {
         static BlockKey from(Block block) {
             return from(block.getLocation());
         }
 
         static BlockKey from(Location location) {
+            World world = location.getWorld();
+            if (world == null) {
+                throw new IllegalArgumentException("Location world is null");
+            }
             return new BlockKey(
-                    location.getWorld().getName(),
+                    world.getName(),
                     location.getBlockX(),
                     location.getBlockY(),
                     location.getBlockZ()
@@ -337,10 +345,10 @@ public class NewBlockBreak implements Listener {
         }
     }
 
-    private record DripstoneSnapshot(BlockKey key, BlockData blockData) {
+    private record DripstoneSnapshot(BlockKey key, BlockData blockData)  {
     }
 
-    private record ScheduledRestore(BukkitTask task, Runnable restore) {
+    private record ScheduledRestore(BukkitTask task, Runnable restore)  {
     }
 
     private record PendingBreak(

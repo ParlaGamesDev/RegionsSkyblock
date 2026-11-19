@@ -4,11 +4,13 @@ import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 
-public class Loc {
-    protected int x, y, z;
+public class Loc  {
+    protected int x;
+    protected int y;
+    protected int z;
     protected String world;
 
-    public Loc(int x, int y, int z, String world){
+    public Loc(int x, int y, int z, String world) {
         this.x = x;
         this.y = y;
         this.z = z;
@@ -47,10 +49,11 @@ public class Loc {
         this.z = z;
     }
 
-    public Block getBlockAt(){
+    public Block getBlockAt() {
         World world = Bukkit.getWorld(this.world);
-        if(world != null)
+        if (world != null) {
             return world.getBlockAt(x, y, z);
+        }
         return null;
     }
 }

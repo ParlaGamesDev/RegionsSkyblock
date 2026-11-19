@@ -1,16 +1,13 @@
 package me.goomer.regionsSkyblock.commands;
 
 import me.goomer.regionsSkyblock.RegionsSkyblock;
-import org.bukkit.command.Command;
-import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
-import org.bukkit.entity.Player;
 
-public class AddFarm extends SubCommand {
+public class AddFarm extends SubCommand  {
 
     private RegionsSkyblock plugin;
 
-    public AddFarm(RegionsSkyblock plugin){
+    public AddFarm(RegionsSkyblock plugin) {
         this.plugin = plugin;
     }
 
@@ -18,8 +15,8 @@ public class AddFarm extends SubCommand {
 
     @Override
     public void execute(CommandSender sender, String[] strings) {
-        if(strings.length >= 7){
-            try{
+        if (strings.length >= 7) {
+            try {
                 String key = strings[2];
                 String block = strings[3];
                 int minDelay = Integer.parseInt(strings[4]);
@@ -29,7 +26,7 @@ public class AddFarm extends SubCommand {
                 plugin.getConfig().set("farms." + key + ".minDelay", minDelay);
                 plugin.getConfig().set("farms." + key + ".maxDelay", maxDelay);
 
-                if(strings.length >= 10){
+                if (strings.length >= 10) {
                     int starX = Integer.parseInt(strings[6]);
                     int starY = Integer.parseInt(strings[7]);
                     int starZ = Integer.parseInt(strings[8]);
@@ -47,7 +44,7 @@ public class AddFarm extends SubCommand {
 
                 send(sender, "Added " + key);
 
-            }catch (NumberFormatException e){
+            } catch (NumberFormatException e) {
                 send(sender, "You didn't enter the arguments correctly");
             }
 

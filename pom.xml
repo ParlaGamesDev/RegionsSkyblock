@@ -14,9 +14,7 @@
     <properties>
         <java.version>21</java.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <!-- Sibling clone: Documents/GitHub/SkyBlockItems next to RegionsSkyblock -->
-        <skyblockitems.jar.path>${project.basedir}/../SkyBlockItems/target/SkyBlockItems-1.0.jar</skyblockitems.jar.path>
-    </properties>
+</properties>
 
     <build>
         <defaultGoal>clean package</defaultGoal>
@@ -70,6 +68,11 @@
             <id>enginehub-maven</id>
             <url>https://maven.enginehub.org/repo/</url>
         </repository>
+    
+        <repository>
+            <id>project-local</id>
+            <url>file://${project.basedir}/libs/m2</url>
+        </repository>
     </repositories>
 
     <dependencies>
@@ -89,8 +92,7 @@
             <groupId>dev.agam</groupId>
             <artifactId>SkyBlockItems</artifactId>
             <version>1.0</version>
-            <scope>system</scope>
-            <systemPath>${skyblockitems.jar.path}</systemPath>
+            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>com.sk89q.worldguard</groupId>
